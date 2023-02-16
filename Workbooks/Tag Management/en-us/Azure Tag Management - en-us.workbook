@@ -1,0 +1,687 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "# Tag Management"
+      },
+      "name": "text - 0"
+    },
+    {
+      "type": 11,
+      "content": {
+        "version": "LinkItem/1.0",
+        "style": "tabs",
+        "links": [
+          {
+            "id": "2b92d6a6-9176-4f62-b1a9-c8415bf09181",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "Tag list",
+            "subTarget": "TagList",
+            "style": "link"
+          },
+          {
+            "id": "60fee728-4fa2-4596-aa77-e44e05546657",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "Untagged resources",
+            "subTarget": "Untagged",
+            "style": "link"
+          },
+          {
+            "id": "af28fd41-bcd6-485d-9c6e-d846784b85a6",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "Search resources by tag",
+            "subTarget": "ResourcesWithTagSearch",
+            "style": "link"
+          },
+          {
+            "id": "6256233f-be2c-471a-9d4a-0f280e521e97",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "Search tag values",
+            "subTarget": "Search",
+            "style": "link"
+          }
+        ]
+      },
+      "name": "links - 4"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| extend Tagged = iif(isnull(['tags']) or ['tags'] == \"{}\",\"No\",\"Yes\")\r\n| summarize Recursos = count() by Tagged\r\n",
+              "size": 4,
+              "title": "Tagged resources",
+              "queryType": 1,
+              "resourceType": "microsoft.resources/tenants",
+              "crossComponentResources": [
+                "value::tenant"
+              ],
+              "visualization": "piechart",
+              "chartSettings": {
+                "seriesLabelSettings": [
+                  {
+                    "seriesName": "Yes",
+                    "color": "greenDark"
+                  },
+                  {
+                    "seriesName": "No",
+                    "color": "redBright"
+                  }
+                ]
+              }
+            },
+            "name": "Resources Piechart"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| extend Tagged = iif(isnull(['tags']) or ['tags'] == \"{}\",\"Não\",\"Sim\")\r\n| where Tagged == \"Não\"\r\n| project id, type, subscriptionId, resourceGroup\r\n| extend resourceGroup = strcat(\"/subscriptions/\",subscriptionId,\"/resourceGroups/\",resourceGroup)",
+              "size": 0,
+              "showAnalytics": true,
+              "title": "Untagged resources",
+              "showExportToExcel": true,
+              "queryType": 1,
+              "resourceType": "microsoft.resources/tenants",
+              "crossComponentResources": [
+                "value::tenant"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "id",
+                    "formatter": 13,
+                    "formatOptions": {
+                      "linkTarget": null,
+                      "showIcon": true
+                    }
+                  },
+                  {
+                    "columnMatch": "name",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "type",
+                    "formatter": 16,
+                    "formatOptions": {
+                      "showIcon": true
+                    }
+                  },
+                  {
+                    "columnMatch": "subscriptionId",
+                    "formatter": 15,
+                    "formatOptions": {
+                      "linkTarget": null,
+                      "showIcon": true
+                    }
+                  },
+                  {
+                    "columnMatch": "resourceGroup",
+                    "formatter": 14,
+                    "formatOptions": {
+                      "linkTarget": null,
+                      "showIcon": true
+                    }
+                  },
+                  {
+                    "columnMatch": "tags",
+                    "formatter": 7,
+                    "formatOptions": {
+                      "linkTarget": "CellDetails",
+                      "linkLabel": "🔍Exibir",
+                      "linkIsContextBlade": true
+                    }
+                  }
+                ],
+                "rowLimit": 10000,
+                "filter": true
+              }
+            },
+            "name": "Untagged Resources list"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "Untagged"
+      },
+      "name": "Untagged Resources Group"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where isnotnull(['tags'])\r\n| project id, ['tags']\r\n| mv-expand ['tags']\r\n| extend TagName = extract('\"(.+?)\":',1,tostring(tags))\r\n| where TagName notcontains \"hidden-\"\r\n| summarize Recursos = count() by TagName\r\n| order by Recursos desc",
+              "size": 0,
+              "title": "Select the tag to look into",
+              "exportFieldName": "TagName",
+              "exportParameterName": "TagNameFilter",
+              "queryType": 1,
+              "resourceType": "microsoft.resources/tenants",
+              "crossComponentResources": [
+                "value::tenant"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Recursos",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "blue"
+                    }
+                  }
+                ],
+                "filter": true
+              }
+            },
+            "customWidth": "30",
+            "name": "Full tag list"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where tags matches regex @'\"{TagNameFilter}\"'\r\n| extend TagValue = tostring(tags.['{TagNameFilter}'])\r\n| summarize Ocorrencias = count() by TagValue\r\n| top 100 by Ocorrencias desc",
+              "size": 0,
+              "title": "Values found for the tag {TagNameFilter} - top 100 - Click on a value to filter the list below",
+              "exportFieldName": "TagValue",
+              "exportParameterName": "TagFilterValueDrillDown",
+              "exportDefaultValue": ".*",
+              "queryType": 1,
+              "resourceType": "microsoft.resources/tenants",
+              "crossComponentResources": [
+                "value::tenant"
+              ],
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {
+                  "columnMatch": "TagValue",
+                  "formatter": 1
+                },
+                "leftContent": {
+                  "columnMatch": "Ocorrencias",
+                  "formatter": 12,
+                  "formatOptions": {
+                    "palette": "coldHot"
+                  },
+                  "numberFormat": {
+                    "unit": 17,
+                    "options": {
+                      "style": "decimal",
+                      "maximumFractionDigits": 2,
+                      "maximumSignificantDigits": 3
+                    }
+                  }
+                },
+                "showBorder": false,
+                "rowLimit": 100
+              },
+              "graphSettings": {
+                "type": 0,
+                "topContent": {
+                  "columnMatch": "TagValue",
+                  "formatter": 1
+                },
+                "centerContent": {
+                  "columnMatch": "Ocorrencias",
+                  "formatter": 1,
+                  "numberFormat": {
+                    "unit": 17,
+                    "options": {
+                      "maximumSignificantDigits": 3,
+                      "maximumFractionDigits": 2
+                    }
+                  }
+                }
+              }
+            },
+            "customWidth": "70",
+            "conditionalVisibility": {
+              "parameterName": "TagNameFilter",
+              "comparison": "isNotEqualTo"
+            },
+            "name": "Tag Value Filtered Tiles"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where tags matches regex @'\"{TagNameFilter}\"'\r\n| extend TagValue = tostring(tags.['{TagNameFilter}'])\r\n| where TagValue matches regex \"^{TagFilterValueDrillDown}$\"\r\n| project id, type, subscriptionId, resourceGroup, tags\r\n| extend resourceGroup = strcat(\"/subscriptions/\",subscriptionId,\"/resourceGroups/\",resourceGroup)",
+              "size": 0,
+              "showAnalytics": true,
+              "title": "Resources with the {TagNameFilter} tag",
+              "showExportToExcel": true,
+              "queryType": 1,
+              "resourceType": "microsoft.resources/tenants",
+              "crossComponentResources": [
+                "value::tenant"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "id",
+                    "formatter": 13,
+                    "formatOptions": {
+                      "linkTarget": null,
+                      "showIcon": true
+                    }
+                  },
+                  {
+                    "columnMatch": "name",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "type",
+                    "formatter": 16,
+                    "formatOptions": {
+                      "showIcon": true
+                    }
+                  },
+                  {
+                    "columnMatch": "subscriptionId",
+                    "formatter": 15,
+                    "formatOptions": {
+                      "linkTarget": null,
+                      "showIcon": true
+                    }
+                  },
+                  {
+                    "columnMatch": "resourceGroup",
+                    "formatter": 14,
+                    "formatOptions": {
+                      "linkTarget": null,
+                      "showIcon": true
+                    }
+                  },
+                  {
+                    "columnMatch": "tags",
+                    "formatter": 7,
+                    "formatOptions": {
+                      "linkTarget": "CellDetails",
+                      "linkLabel": "🔍Exibir",
+                      "linkIsContextBlade": true
+                    }
+                  }
+                ],
+                "rowLimit": 10000,
+                "filter": true
+              }
+            },
+            "conditionalVisibility": {
+              "parameterName": "TagNameFilter",
+              "comparison": "isNotEqualTo"
+            },
+            "name": "Resources With Specific Tag Value"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "TagList"
+      },
+      "name": "Tag List Group"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 9,
+            "content": {
+              "version": "KqlParameterItem/1.0",
+              "parameters": [
+                {
+                  "id": "0cdefe3c-773b-4a5a-82be-06603fd963f7",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "TagNameSearch",
+                  "label": "Tag to look for",
+                  "type": 1,
+                  "timeContext": {
+                    "durationMs": 86400000
+                  },
+                  "value": "app"
+                }
+              ],
+              "style": "pills",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces"
+            },
+            "name": "parameters - 0"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "Please populate the field above to search for a tag",
+              "style": "info"
+            },
+            "conditionalVisibility": {
+              "parameterName": "TagNameSearch",
+              "comparison": "isEqualTo"
+            },
+            "name": "TagSearchNotFilledWarning"
+          },
+          {
+            "type": 12,
+            "content": {
+              "version": "NotebookGroup/1.0",
+              "groupType": "editable",
+              "items": [
+                {
+                  "type": 1,
+                  "content": {
+                    "json": "Click in one of the values to list the resources where it is set.\r\n",
+                    "style": "info"
+                  },
+                  "name": "text - 2"
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "resources\r\n| where tags matches regex @'\"{TagNameSearch}\"'\r\n| extend TagValue = tostring(tags.['{TagNameSearch}'])\r\n| summarize Ocorrencias = count() by TagValue\r\n| top 100 by Ocorrencias desc",
+                    "size": 3,
+                    "title": "Values found for the tag {TagNameSearch} - top 100",
+                    "exportFieldName": "TagValue",
+                    "exportParameterName": "TagValueDrillDown",
+                    "queryType": 1,
+                    "resourceType": "microsoft.resources/tenants",
+                    "crossComponentResources": [
+                      "value::tenant"
+                    ],
+                    "visualization": "tiles",
+                    "tileSettings": {
+                      "titleContent": {
+                        "columnMatch": "TagValue",
+                        "formatter": 1
+                      },
+                      "leftContent": {
+                        "columnMatch": "Ocorrencias",
+                        "formatter": 12,
+                        "formatOptions": {
+                          "palette": "coldHot"
+                        },
+                        "numberFormat": {
+                          "unit": 17,
+                          "options": {
+                            "style": "decimal",
+                            "maximumFractionDigits": 2,
+                            "maximumSignificantDigits": 3
+                          }
+                        }
+                      },
+                      "showBorder": false,
+                      "rowLimit": 100
+                    },
+                    "graphSettings": {
+                      "type": 0,
+                      "topContent": {
+                        "columnMatch": "TagValue",
+                        "formatter": 1
+                      },
+                      "centerContent": {
+                        "columnMatch": "Ocorrencias",
+                        "formatter": 1,
+                        "numberFormat": {
+                          "unit": 17,
+                          "options": {
+                            "maximumSignificantDigits": 3,
+                            "maximumFractionDigits": 2
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "name": "TagContentBarChart"
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "resources\r\n| where tags matches regex @'\"{TagNameSearch}\"'\r\n| extend TagValue = tostring(tags.['{TagNameSearch}'])\r\n| where TagValue == \"{TagValueDrillDown}\"\r\n| project id, type, subscriptionId, resourceGroup, tags\r\n| extend resourceGroup = strcat(\"/subscriptions/\",subscriptionId,\"/resourceGroups/\",resourceGroup)",
+                    "size": 0,
+                    "showAnalytics": true,
+                    "title": "Resources with the tag {TagNameSearch} and the value {TagValueDrillDown}",
+                    "showExportToExcel": true,
+                    "queryType": 1,
+                    "resourceType": "microsoft.resources/tenants",
+                    "crossComponentResources": [
+                      "value::tenant"
+                    ],
+                    "visualization": "table",
+                    "gridSettings": {
+                      "formatters": [
+                        {
+                          "columnMatch": "id",
+                          "formatter": 13,
+                          "formatOptions": {
+                            "linkTarget": null,
+                            "showIcon": true
+                          }
+                        },
+                        {
+                          "columnMatch": "name",
+                          "formatter": 5
+                        },
+                        {
+                          "columnMatch": "type",
+                          "formatter": 16,
+                          "formatOptions": {
+                            "showIcon": true
+                          }
+                        },
+                        {
+                          "columnMatch": "subscriptionId",
+                          "formatter": 15,
+                          "formatOptions": {
+                            "linkTarget": null,
+                            "showIcon": true
+                          }
+                        },
+                        {
+                          "columnMatch": "resourceGroup",
+                          "formatter": 14,
+                          "formatOptions": {
+                            "linkTarget": null,
+                            "showIcon": true
+                          }
+                        },
+                        {
+                          "columnMatch": "tags",
+                          "formatter": 7,
+                          "formatOptions": {
+                            "linkTarget": "CellDetails",
+                            "linkLabel": "🔍Exibir",
+                            "linkIsContextBlade": true
+                          }
+                        }
+                      ],
+                      "rowLimit": 10000,
+                      "filter": true
+                    }
+                  },
+                  "conditionalVisibility": {
+                    "parameterName": "TagValueDrillDown",
+                    "comparison": "isNotEqualTo"
+                  },
+                  "name": "Resources With Specific Tag Value"
+                }
+              ]
+            },
+            "conditionalVisibility": {
+              "parameterName": "TagNameSearch",
+              "comparison": "isNotEqualTo"
+            },
+            "name": "TagSearchContentGroup"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "Search"
+      },
+      "name": "TagSearchGroup"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 9,
+            "content": {
+              "version": "KqlParameterItem/1.0",
+              "parameters": [
+                {
+                  "id": "0cdefe3c-773b-4a5a-82be-06603fd963f7",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "TagNameForResourcesSearch",
+                  "label": "Tag list",
+                  "type": 1,
+                  "description": "Use a regular expression to search tags on resources. valueUsa o valor de Regular Expressions para buscar tags nos recursos. Use part of the name, the whole name or any RegEx compatible expression",
+                  "timeContext": {
+                    "durationMs": 86400000
+                  },
+                  "value": "app"
+                }
+              ],
+              "style": "pills",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces"
+            },
+            "name": "parameters - 0"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "Please populate the field above to search resources by tag",
+              "style": "info"
+            },
+            "conditionalVisibility": {
+              "parameterName": "TagNameForResourcesSearch",
+              "comparison": "isEqualTo"
+            },
+            "name": "TagSearchNotFilledWarning"
+          },
+          {
+            "type": 12,
+            "content": {
+              "version": "NotebookGroup/1.0",
+              "groupType": "editable",
+              "items": [
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "resources\r\n| where tags matches regex @'{TagNameForResourcesSearch}'\r\n| project id, type, subscriptionId, resourceGroup, tags\r\n| extend resourceGroup = strcat(\"/subscriptions/\",subscriptionId,\"/resourceGroups/\",resourceGroup)",
+                    "size": 0,
+                    "showAnalytics": true,
+                    "title": "Resource with the tags set on the filter",
+                    "showExportToExcel": true,
+                    "queryType": 1,
+                    "resourceType": "microsoft.resources/tenants",
+                    "crossComponentResources": [
+                      "value::tenant"
+                    ],
+                    "visualization": "table",
+                    "gridSettings": {
+                      "formatters": [
+                        {
+                          "columnMatch": "id",
+                          "formatter": 13,
+                          "formatOptions": {
+                            "linkTarget": null,
+                            "showIcon": true
+                          }
+                        },
+                        {
+                          "columnMatch": "name",
+                          "formatter": 5
+                        },
+                        {
+                          "columnMatch": "type",
+                          "formatter": 16,
+                          "formatOptions": {
+                            "showIcon": true
+                          }
+                        },
+                        {
+                          "columnMatch": "subscriptionId",
+                          "formatter": 15,
+                          "formatOptions": {
+                            "linkTarget": null,
+                            "showIcon": true
+                          }
+                        },
+                        {
+                          "columnMatch": "resourceGroup",
+                          "formatter": 14,
+                          "formatOptions": {
+                            "linkTarget": null,
+                            "showIcon": true
+                          }
+                        },
+                        {
+                          "columnMatch": "tags",
+                          "formatter": 7,
+                          "formatOptions": {
+                            "linkTarget": "CellDetails",
+                            "linkLabel": "🔍Exibir",
+                            "linkIsContextBlade": true
+                          }
+                        }
+                      ],
+                      "rowLimit": 10000,
+                      "filter": true
+                    }
+                  },
+                  "name": "Resources With Specific Tag set"
+                }
+              ]
+            },
+            "conditionalVisibility": {
+              "parameterName": "TagNameForResourcesSearch",
+              "comparison": "isNotEqualTo"
+            },
+            "name": "TagSearchResourcesContentGroup"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "ResourcesWithTagSearch"
+      },
+      "name": "ResourcesByTagSearchGroup"
+    }
+  ],
+  "fallbackResourceIds": [
+    "Azure Monitor"
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}
