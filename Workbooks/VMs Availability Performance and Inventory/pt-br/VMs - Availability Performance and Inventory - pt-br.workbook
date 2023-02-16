@@ -1,0 +1,2293 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "# Disponibilidade, Performance e Inventário\r\n## Servidores Windows e Linux"
+      },
+      "name": "text - 2"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "b4ea0cb9-573f-4c47-a640-7e591b0f3b04",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRangeParam",
+            "label": "Intervalo",
+            "type": 4,
+            "isRequired": true,
+            "value": {
+              "durationMs": 3600000
+            },
+            "typeSettings": {
+              "selectableValues": [
+                {
+                  "durationMs": 3600000
+                },
+                {
+                  "durationMs": 14400000
+                },
+                {
+                  "durationMs": 43200000
+                },
+                {
+                  "durationMs": 86400000
+                },
+                {
+                  "durationMs": 172800000
+                },
+                {
+                  "durationMs": 259200000
+                },
+                {
+                  "durationMs": 604800000
+                },
+                {
+                  "durationMs": 1209600000
+                },
+                {
+                  "durationMs": 2419200000
+                },
+                {
+                  "durationMs": 2592000000
+                },
+                {
+                  "durationMs": 5184000000
+                },
+                {
+                  "durationMs": 7776000000
+                }
+              ],
+              "allowCustom": true
+            },
+            "timeContext": {
+              "durationMs": 86400000
+            }
+          },
+          {
+            "id": "42d4d6ef-cdc1-4169-a59c-afe42a146e2f",
+            "version": "KqlParameterItem/1.0",
+            "name": "SubscriptionParam",
+            "label": "Subscription",
+            "type": 6,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "resources \r\n| where type =~ \"microsoft.operationalinsights/workspaces\" or type =~ \"microsoft.compute/virtualmachines\" or type =~ \"microsoft.hybridcompute/machines\"\r\n| distinct subscriptionId",
+            "crossComponentResources": [
+              "value::all"
+            ],
+            "value": [
+              "value::all"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "showDefault": false
+            },
+            "timeContext": {
+              "durationMs": 86400000
+            },
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources"
+          },
+          {
+            "id": "4e4c439a-55d9-4b6c-ac45-d687326904ef",
+            "version": "KqlParameterItem/1.0",
+            "name": "ResourceGroup",
+            "label": "Resource Group",
+            "type": 5,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "resources\r\n| distinct resourceGroup",
+            "crossComponentResources": [
+              "{SubscriptionParam}"
+            ],
+            "value": [
+              "value::all"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "showDefault": false
+            },
+            "timeContext": {
+              "durationMs": 86400000
+            },
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources"
+          },
+          {
+            "id": "ef27d563-e21a-4f5c-9b2b-2f8aee1a157a",
+            "version": "KqlParameterItem/1.0",
+            "name": "WorkspaceParam",
+            "label": "Workspace",
+            "type": 5,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "where type =~ 'microsoft.operationalinsights/workspaces'\r\n| where resourceGroup in ({ResourceGroup})\r\n| project id",
+            "crossComponentResources": [
+              "{SubscriptionParam}"
+            ],
+            "value": [
+              "value::all"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "showDefault": false
+            },
+            "timeContext": {
+              "durationMs": 86400000
+            },
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources"
+          },
+          {
+            "id": "a1f1ab02-42d3-4c31-9e05-77ae330bce94",
+            "version": "KqlParameterItem/1.0",
+            "name": "ShowFilters",
+            "label": "Exibir Filtros",
+            "type": 10,
+            "isRequired": true,
+            "typeSettings": {
+              "additionalResourceOptions": []
+            },
+            "jsonData": "[{\"value\":\"true\",\"label\":\"Sim\",\"selected\":true},\r\n{\"value\":\"false\",\"label\":\"Não\"}]"
+          },
+          {
+            "id": "0cadcd37-e29c-49c4-a2a9-82b49a472d1e",
+            "version": "KqlParameterItem/1.0",
+            "name": "ShowHelp",
+            "label": "Exibir ajuda",
+            "type": 10,
+            "isRequired": true,
+            "typeSettings": {
+              "additionalResourceOptions": []
+            },
+            "jsonData": "[\r\n    {\"value\":\"true\",\"label\":\"Sim\"},\r\n    {\"value\":\"false\",\"label\":\"Não\",\"selected\":true}]"
+          },
+          {
+            "version": "KqlParameterItem/1.0",
+            "name": "ShowSummary",
+            "label": "Exibir resumo",
+            "type": 10,
+            "isRequired": true,
+            "typeSettings": {
+              "additionalResourceOptions": [],
+              "showDefault": false
+            },
+            "jsonData": "[\r\n    {\"value\":\"true\",\"label\":\"Sim\",\"selected\":true},\r\n    {\"value\":\"false\",\"label\":\"Não\"}]",
+            "id": "d75336eb-12b6-4f11-875a-43d72495dff2"
+          }
+        ],
+        "style": "above",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces"
+      },
+      "name": "parameters - 7"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "### Como utilizar o Workbook\r\n\r\nPara os dados de performance serem exibidos corretamente, é necessário que as VMs estejam configuradas com o VM Insights. Nesta versão, ainda precisamos de todos os dados (performance, dependências e map). Essas dependências serão removidas como melhoria em uma próxima versão.",
+        "style": "info"
+      },
+      "conditionalVisibility": {
+        "parameterName": "ShowHelp",
+        "comparison": "isEqualTo",
+        "value": "true"
+      },
+      "name": "Help Text"
+    },
+    {
+      "type": 11,
+      "content": {
+        "version": "LinkItem/1.0",
+        "style": "tabs",
+        "links": [
+          {
+            "id": "c7624970-5ef7-41ef-af45-b43bb3eea566",
+            "cellValue": "selectedMainTab",
+            "linkTarget": "parameter",
+            "linkLabel": "Visão Geral",
+            "subTarget": "Overview",
+            "style": "link"
+          },
+          {
+            "id": "760aa7a1-239d-4abd-8b56-502f91a03274",
+            "cellValue": "selectedMainTab",
+            "linkTarget": "parameter",
+            "linkLabel": "Performance",
+            "subTarget": "Perf",
+            "style": "link"
+          }
+        ]
+      },
+      "name": "links - 3"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 9,
+            "content": {
+              "version": "KqlParameterItem/1.0",
+              "parameters": [
+                {
+                  "id": "61caf256-0943-44b3-9bbe-ea65402394cf",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "AggregationType",
+                  "label": "Agregar por",
+                  "type": 10,
+                  "isRequired": true,
+                  "typeSettings": {
+                    "additionalResourceOptions": [],
+                    "showDefault": false
+                  },
+                  "jsonData": "[{\"value\":\"avg\",\"label\":\"Média\",\"selected\":true},\r\n{\"value\":\"max\",\"label\":\"Máximo\"},\r\n{\"value\":\"min\",\"label\":\"Mínimo\"}]",
+                  "timeContext": {
+                    "durationMs": 86400000
+                  },
+                  "value": "max"
+                },
+                {
+                  "id": "efb3b066-84ab-4b90-884a-6bafae04e3d6",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "OSTypeFilter",
+                  "label": "Sistema Operacional",
+                  "type": 10,
+                  "isRequired": true,
+                  "typeSettings": {
+                    "additionalResourceOptions": [],
+                    "showDefault": false
+                  },
+                  "jsonData": "[\r\n    {\"value\":\"'windows'\",\"label\":\"Windows\"},\r\n    {\"value\":\"'linux'\",\"label\":\"Linux\"},\r\n    {\"value\":\"'windows','linux'\",\"label\":\"Todos\",\"selected\":true}\r\n]",
+                  "timeContext": {
+                    "durationMs": 86400000
+                  }
+                },
+                {
+                  "id": "ace2a32d-4ac9-4623-adb1-4c23678e57b1",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "ServerNameFilter",
+                  "label": "Filtro Servidores",
+                  "type": 1,
+                  "description": "Utiliza a sintaxe de RegEx para filtrar por nome os servidores exibidos - Utilizar .* para todos",
+                  "isRequired": true,
+                  "value": ".*",
+                  "timeContext": {
+                    "durationMs": 86400000
+                  }
+                },
+                {
+                  "id": "7f5ce04e-3750-421d-b67a-a9b8995b311f",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "GridStyle",
+                  "label": "Exibir lista",
+                  "type": 10,
+                  "isRequired": true,
+                  "typeSettings": {
+                    "additionalResourceOptions": [],
+                    "showDefault": false
+                  },
+                  "jsonData": "[{\"value\":\"flat\",\"label\":\"Direta\",\"selected\":true},\r\n{\"value\":\"hierarchy\",\"label\":\"Hierárquica\"}]"
+                },
+                {
+                  "id": "1ce4ee12-6f0c-47eb-95e6-5c3eb9cc26ec",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "MachineType",
+                  "label": "Tipo de máquina",
+                  "type": 10,
+                  "isRequired": true,
+                  "typeSettings": {
+                    "additionalResourceOptions": [],
+                    "showDefault": false
+                  },
+                  "jsonData": "[\r\n    {\"value\":\"type =~ 'microsoft.compute/virtualmachines'\",\"label\":\"Azure VM\"},\r\n    {\"value\":\"type =~ 'microsoft.hybridcompute/machines'\",\"label\":\"ARC Server\"},\r\n    {\"value\":\"true\",\"label\":\"Todos\",\"selected\":true}\r\n]"
+                }
+              ],
+              "style": "above",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces"
+            },
+            "conditionalVisibility": {
+              "parameterName": "ShowFilters",
+              "comparison": "isEqualTo",
+              "value": "true"
+            },
+            "name": "Computer List Filters"
+          },
+          {
+            "type": 9,
+            "content": {
+              "version": "KqlParameterItem/1.0",
+              "parameters": [
+                {
+                  "id": "8fa71ffa-4821-45ac-b1f0-e919e0cc2139",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "AzureStatusFilter",
+                  "label": "Status (Azure)",
+                  "type": 10,
+                  "description": "Filtra máquinas saudáveis ou não saudáveis no campo Status (Azure)",
+                  "isRequired": true,
+                  "typeSettings": {
+                    "additionalResourceOptions": [],
+                    "showDefault": false
+                  },
+                  "jsonData": "[\r\n    {\"label\":\"Saudáveis\",\"value\":\"MachineStatus in('Connected','VM running')\"},\r\n    {\"label\":\"Não saudáveis\",\"value\":\"MachineStatus !in('Connected','VM running')\"},\r\n    {\"label\":\"Todos\",\"value\":\"true\",\"selected\":true}\r\n]"
+                },
+                {
+                  "id": "d2b43e07-7249-4e4f-87a3-97812028965c",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "FilterOnThresholds",
+                  "label": "Filtro de Thresholds",
+                  "type": 10,
+                  "description": "Filtro baseado na quebra de thresholds configurados",
+                  "isRequired": true,
+                  "typeSettings": {
+                    "additionalResourceOptions": [],
+                    "showDefault": false
+                  },
+                  "jsonData": "[{\"value\":\"Perf\",\"label\":\"Performance\"},\r\n{\"value\":\"Heartbeat\",\"label\":\"Disponibilidade\"},\r\n{\"value\":\"All\",\"label\":\"Ambos\"},\r\n{\"value\":\"None\",\"label\":\"Nenhum\",\"selected\":true}]",
+                  "timeContext": {
+                    "durationMs": 86400000
+                  }
+                },
+                {
+                  "id": "757ffa70-eca0-441e-bf1a-00473a1054e0",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "CPUThreshold",
+                  "label": "Threshold CPU",
+                  "type": 1,
+                  "isRequired": true,
+                  "value": "80"
+                },
+                {
+                  "id": "b3f3e80d-b584-4252-8bf4-3c78f8474388",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "MemThreshold",
+                  "label": "Threshold Memória",
+                  "type": 1,
+                  "isRequired": true,
+                  "value": "80"
+                },
+                {
+                  "id": "f9c81a3b-5240-43ec-990b-88c97b66da61",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "SystemDriveThreshold",
+                  "label": "Threshold System Drive",
+                  "type": 1,
+                  "isRequired": true,
+                  "value": "80"
+                },
+                {
+                  "id": "55d9525e-eb40-4df5-aecf-6aaa6d9c4324",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "HeartbeatThreshold",
+                  "label": "Threshold Heartbeat (s)",
+                  "type": 1,
+                  "isRequired": true,
+                  "value": "900",
+                  "timeContext": {
+                    "durationMs": 86400000
+                  }
+                },
+                {
+                  "id": "2210ad06-1dcf-4384-a649-80f9e3ca4d9a",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "ThresholdFilter",
+                  "type": 1,
+                  "isHiddenWhenLocked": true,
+                  "criteriaData": [
+                    {
+                      "criteriaContext": {
+                        "leftOperand": "FilterOnThresholds",
+                        "operator": "==",
+                        "rightValType": "static",
+                        "rightVal": "Perf",
+                        "resultValType": "static",
+                        "resultVal": "PerfState == \"Unhealthy\""
+                      }
+                    },
+                    {
+                      "criteriaContext": {
+                        "leftOperand": "FilterOnThresholds",
+                        "operator": "==",
+                        "rightValType": "static",
+                        "rightVal": "Heartbeat",
+                        "resultValType": "static",
+                        "resultVal": "HeartbeatState == \"Unhealthy\""
+                      }
+                    },
+                    {
+                      "criteriaContext": {
+                        "leftOperand": "FilterOnThresholds",
+                        "operator": "==",
+                        "rightValType": "static",
+                        "rightVal": "All",
+                        "resultValType": "static",
+                        "resultVal": "HeartbeatState == \"Unhealthy\" and PerfState == \"Unhealthy\""
+                      }
+                    },
+                    {
+                      "criteriaContext": {
+                        "operator": "Default",
+                        "resultValType": "static",
+                        "resultVal": "true"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "style": "above",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces"
+            },
+            "conditionalVisibility": {
+              "parameterName": "ShowFilters",
+              "comparison": "isEqualTo",
+              "value": "true"
+            },
+            "name": "Threshold Filters"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources \r\n| where type =~ \"microsoft.compute/virtualmachines\" or type =~ \"microsoft.hybridcompute/machines\" \r\n| where resourceGroup in ({ResourceGroup})\r\n| where {MachineType} \r\n| project subscriptionId, resourceGroup, id, type, ARCState = properties.status, AZVMState = properties.extended.instanceView.powerState.displayStatus\r\n| extend MachineStatus = iif(type =~ \"microsoft.compute/virtualmachines\",AZVMState,ARCState)\r\n| where {AzureStatusFilter}\r\n| extend RG = strcat(\"/subscriptions/\", subscriptionId, \"/resourceGroups/\", resourceGroup)\r\n| project-away AZVMState, ARCState, resourceGroup\r\n",
+              "size": 4,
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{SubscriptionParam}"
+              ],
+              "visualization": "table"
+            },
+            "customWidth": "50",
+            "conditionalVisibility": {
+              "parameterName": "debugVisible",
+              "comparison": "isEqualTo",
+              "value": "true"
+            },
+            "name": "ARG Machine List"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let AllComputers = VMComputer\r\n| summarize arg_max(TimeGenerated,*) by Computer, _ResourceId\r\n| where isnotempty(_ResourceId)\r\n| where OperatingSystemFamily in ({OSTypeFilter:value}) and Computer matches regex @\"(?i){ServerNameFilter}\"\r\n    | distinct\r\n        Computer,\r\n        OperatingSystemFamily,\r\n        PhysicalMemoryMB,\r\n        Cpus,\r\n        _ResourceId,\r\n        AzureVmScaleSetName,\r\n        AzureSubscriptionId,\r\n        AzureResourceGroup;\r\n//\r\nlet ComputerIdList = AllComputers\r\n    | project _ResourceId;\r\n//\r\nlet HeartbeatHistory = Heartbeat \r\n    | where _ResourceId in (ComputerIdList)\r\n    | summarize arg_max(TimeGenerated, *) by _ResourceId\r\n    | project _ResourceId, LastHeartbeat = TimeGenerated\r\n    | extend SecondsSinceLastHeartbeat = (now() - LastHeartbeat)/1s;\r\n//\r\nlet CPUUsage = InsightsMetrics\r\n    | where _ResourceId in (ComputerIdList)\r\n    | where Namespace == \"Processor\"\r\n    | summarize CPUUsage = {AggregationType:value}(Val) by _ResourceId;\r\n//\r\nlet DiskFreeSpace = InsightsMetrics\r\n    | where _ResourceId in (ComputerIdList)\r\n    | where Namespace == \"LogicalDisk\"\r\n    | where Name == \"FreeSpacePercentage\"\r\n    | extend Instance = tostring(todynamic(Tags).[\"vm.azm.ms/mountId\"])\r\n    | join kind=inner AllComputers on _ResourceId\r\n    | extend OSSystemDrive = iif(OperatingSystemFamily =~ \"windows\", \"C:\", \"/\")\r\n    | where OSSystemDrive == Instance\r\n    | extend UsedSpacePercentage = 100-Val\r\n    | summarize OSDiskUsedSpacePercentage = {AggregationType:value}(UsedSpacePercentage) by _ResourceId, Instance;\r\n//\r\nlet MemoryUsage = InsightsMetrics\r\n    | where _ResourceId in (ComputerIdList)\r\n    | where Namespace == \"Memory\"\r\n    | extend MemorySizeMB = parse_json(Tags).['vm.azm.ms/memorySizeMB']\r\n    | extend PercentMemoryUsed = 100 * Val / MemorySizeMB\r\n    | summarize MemoryUsage = {AggregationType:value}(PercentMemoryUsed) by _ResourceId;\r\n//\r\nAllComputers\r\n| join kind=inner HeartbeatHistory on _ResourceId\r\n| join kind=inner CPUUsage on _ResourceId\r\n| join kind=inner MemoryUsage on _ResourceId\r\n| join kind=inner DiskFreeSpace on _ResourceId\r\n| extend ResourceGroup = strcat(\"/subscriptions/\", AzureSubscriptionId, \"/resourceGroups/\", AzureResourceGroup)\r\n| extend AzureVmScaleSetName = iif(AzureVmScaleSetName == \"\", \"VM\", AzureVmScaleSetName)\r\n| extend HeartbeatState = iif(SecondsSinceLastHeartbeat <= {HeartbeatThreshold},\"Healthy\",\"Unhealthy\")\r\n| extend PerfState = iif(CPUUsage <= {CPUThreshold} and MemoryUsage <= {MemThreshold} and OSDiskUsedSpacePercentage <= {SystemDriveThreshold}, \"Healthy\", \"Unhealthy\")\r\n| where {ThresholdFilter}\r\n| project\r\n    HeartbeatState,\r\n    PerfState,\r\n    _ResourceId,\r\n    AzureSubscriptionId,\r\n    ResourceGroup,\r\n    AzureVmScaleSetName,\r\n    Computer,\r\n    SecondsSinceLastHeartbeat,\r\n    OperatingSystemFamily,\r\n    CPUUsage,\r\n    MemoryUsage,\r\n    OSDiskUsedSpacePercentage\r\n\r\n",
+              "size": 4,
+              "timeContextFromParameter": "TimeRangeParam",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{WorkspaceParam}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "HeartbeatState",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Healthy",
+                          "representation": "success",
+                          "text": ""
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Unhealthy",
+                          "representation": "critical",
+                          "text": ""
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "Unknown",
+                          "text": "{0}{1}"
+                        }
+                      ],
+                      "customColumnWidthSetting": "19ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "PerfState",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Healthy",
+                          "representation": "success",
+                          "text": ""
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Unhealthy",
+                          "representation": "critical",
+                          "text": ""
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "unknown",
+                          "text": "{0}{1}"
+                        }
+                      ],
+                      "customColumnWidthSetting": "16.1429ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "AzureSubscriptionId",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "ResourceGroup",
+                    "formatter": 14,
+                    "formatOptions": {
+                      "linkTarget": null,
+                      "showIcon": true
+                    }
+                  },
+                  {
+                    "columnMatch": "SecondsSinceLastHeartbeat",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 24,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 0
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "CPUUsage",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "greenRed",
+                      "customColumnWidthSetting": "15ch"
+                    },
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 0
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "MemoryUsage",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "greenRed",
+                      "customColumnWidthSetting": "15ch"
+                    },
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 0
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "OSDiskUsedSpacePercentage",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "greenRed",
+                      "customColumnWidthSetting": "15ch"
+                    },
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 0
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "LastHeartbeat",
+                    "formatter": 0,
+                    "numberFormat": {
+                      "unit": 24,
+                      "options": {
+                        "style": "decimal"
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "AzureResourceGroup",
+                    "formatter": 14,
+                    "formatOptions": {
+                      "linkTarget": null,
+                      "showIcon": true
+                    }
+                  }
+                ],
+                "rowLimit": 1000,
+                "labelSettings": [
+                  {
+                    "columnId": "HeartbeatState",
+                    "label": "Disponibilidade"
+                  },
+                  {
+                    "columnId": "PerfState",
+                    "label": "Performance"
+                  },
+                  {
+                    "columnId": "_ResourceId",
+                    "label": "Recurso"
+                  },
+                  {
+                    "columnId": "AzureSubscriptionId",
+                    "label": "Subscription"
+                  },
+                  {
+                    "columnId": "ResourceGroup",
+                    "label": "Resource Group"
+                  },
+                  {
+                    "columnId": "AzureVmScaleSetName",
+                    "label": "VMSS Name"
+                  },
+                  {
+                    "columnId": "Computer",
+                    "label": "Computador"
+                  },
+                  {
+                    "columnId": "SecondsSinceLastHeartbeat",
+                    "label": "Último Heartbeat"
+                  },
+                  {
+                    "columnId": "OperatingSystemFamily",
+                    "label": "SO"
+                  },
+                  {
+                    "columnId": "CPUUsage",
+                    "label": "% CPU"
+                  },
+                  {
+                    "columnId": "MemoryUsage",
+                    "label": "% Mem"
+                  },
+                  {
+                    "columnId": "OSDiskUsedSpacePercentage",
+                    "label": "% OSDisk"
+                  }
+                ]
+              },
+              "sortBy": []
+            },
+            "customWidth": "50",
+            "conditionalVisibility": {
+              "parameterName": "debugVisible",
+              "comparison": "isEqualTo",
+              "value": "true"
+            },
+            "name": "Main VM State Grid - Base"
+          },
+          {
+            "type": 12,
+            "content": {
+              "version": "NotebookGroup/1.0",
+              "groupType": "editable",
+              "title": "Resumo",
+              "items": [
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "resources \r\n| where type =~ \"microsoft.compute/virtualmachines\" or type =~ \"microsoft.hybridcompute/machines\" \r\n| where resourceGroup in ({ResourceGroup})\r\n| where {MachineType} \r\n| project subscriptionId, resourceGroup, id, type, ARCState = properties.status, AZVMState = properties.extended.instanceView.powerState.displayStatus\r\n| extend MachineStatus = iif(type =~ \"microsoft.compute/virtualmachines\",AZVMState,ARCState)\r\n| where {AzureStatusFilter}\r\n| extend State = tostring(iif(MachineStatus in (\"Connected\",\"VM running\"),\"Saudável\",\"Não saudável\"))\r\n| summarize VMs = count() by State\r\n\r\n",
+                    "size": 4,
+                    "title": "Status (Azure)",
+                    "queryType": 1,
+                    "resourceType": "microsoft.resourcegraph/resources",
+                    "crossComponentResources": [
+                      "{SubscriptionParam}"
+                    ],
+                    "visualization": "piechart",
+                    "chartSettings": {
+                      "seriesLabelSettings": [
+                        {
+                          "seriesName": "Saudável",
+                          "color": "green"
+                        },
+                        {
+                          "seriesName": "Não saudável",
+                          "color": "red"
+                        }
+                      ]
+                    }
+                  },
+                  "customWidth": "50",
+                  "showPin": false,
+                  "name": "SummaryAzMerge"
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "resources \r\n| where type =~ \"microsoft.compute/virtualmachines\" or type =~ \"microsoft.hybridcompute/machines\" \r\n| where resourceGroup in ({ResourceGroup})\r\n| where {MachineType} \r\n| project subscriptionId, resourceGroup, id, type, ARCState = properties.status, AZVMState = properties.extended.instanceView.powerState.displayStatus\r\n| extend MachineStatus = iif(type =~ \"microsoft.compute/virtualmachines\",AZVMState,ARCState)\r\n| where {AzureStatusFilter}\r\n| summarize VMs = count() by type\r\n\r\n",
+                    "size": 4,
+                    "title": "Tipos de máquina",
+                    "queryType": 1,
+                    "resourceType": "microsoft.resourcegraph/resources",
+                    "crossComponentResources": [
+                      "{SubscriptionParam}"
+                    ],
+                    "visualization": "piechart",
+                    "chartSettings": {
+                      "seriesLabelSettings": [
+                        {
+                          "seriesName": "microsoft.compute/virtualmachines",
+                          "label": "Azure VM",
+                          "color": "blue"
+                        },
+                        {
+                          "seriesName": "microsoft.hybridcompute/machines",
+                          "label": "ARC Server",
+                          "color": "purpleDark"
+                        }
+                      ]
+                    }
+                  },
+                  "customWidth": "50",
+                  "showPin": false,
+                  "name": "Summary Machine Type"
+                }
+              ]
+            },
+            "conditionalVisibility": {
+              "parameterName": "ShowSummary",
+              "comparison": "isEqualTo",
+              "value": "true"
+            },
+            "name": "Summary Group",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "{\"version\":\"Merge/1.0\",\"merges\":[{\"id\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\",\"mergeType\":\"leftouter\",\"leftTable\":\"ARG Machine List\",\"rightTable\":\"Main VM State Grid - Base\",\"leftColumn\":\"id\",\"rightColumn\":\"_ResourceId\"}],\"projectRename\":[{\"originalName\":\"[ARG Machine List].MachineStatus\",\"mergedName\":\"MachineStatus\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].HeartbeatState\",\"mergedName\":\"Disponibilidade\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].PerfState\",\"mergedName\":\"Performance\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[ARG Machine List].id\",\"mergedName\":\"id\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[ARG Machine List].RG\",\"mergedName\":\"RG\",\"fromId\":\"unknown\"},{\"originalName\":\"[ARG Machine List].subscriptionId\",\"mergedName\":\"subscriptionId\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[ARG Machine List].resourceGroup\",\"mergedName\":\"resourceGroup\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].AzureVmScaleSetName\",\"mergedName\":\"VMSS Name\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].Computer\",\"mergedName\":\"Computador\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[ARG Machine List].type\",\"mergedName\":\"type\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].SecondsSinceLastHeartbeat\",\"mergedName\":\"Último Heartbeat\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].OperatingSystemFamily\",\"mergedName\":\"SO\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].CPUUsage\",\"mergedName\":\"% CPU\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].MemoryUsage\",\"mergedName\":\"% Mem\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].OSDiskUsedSpacePercentage\",\"mergedName\":\"% OSDisk\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].AzureSubscriptionId\"},{\"originalName\":\"[Main VM State Grid - Base]._ResourceId\"},{\"originalName\":\"[Main VM State Grid - Base].ResourceGroup\"}]}",
+              "size": 2,
+              "showRefreshButton": true,
+              "exportedParameters": [
+                {
+                  "fieldName": "id",
+                  "parameterName": "ResourceIDDrillDown",
+                  "parameterType": 1
+                },
+                {
+                  "fieldName": "Computador",
+                  "parameterName": "ComputerDrillDown",
+                  "parameterType": 1
+                }
+              ],
+              "showExportToExcel": true,
+              "queryType": 7,
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "MachineStatus",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "VM running",
+                          "representation": "success",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Connected",
+                          "representation": "success",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "VM deallocated",
+                          "representation": "critical",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Disconnected",
+                          "representation": "critical",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "unknown",
+                          "text": "{0}{1}"
+                        }
+                      ],
+                      "customColumnWidthSetting": "20.7143ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "Disponibilidade",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Healthy",
+                          "representation": "success",
+                          "text": ""
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Unhealthy",
+                          "representation": "4",
+                          "text": ""
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "unknown",
+                          "text": "{0}{1}"
+                        }
+                      ],
+                      "customColumnWidthSetting": "19.1429ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "Performance",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Healthy",
+                          "representation": "success",
+                          "text": ""
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Unhealthy",
+                          "representation": "4",
+                          "text": ""
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "unknown",
+                          "text": "{0}{1}"
+                        }
+                      ],
+                      "customColumnWidthSetting": "17.2857ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "id",
+                    "formatter": 0,
+                    "formatOptions": {
+                      "customColumnWidthSetting": "19.1429ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "subscriptionId",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "VMSS Name",
+                    "formatter": 0,
+                    "formatOptions": {
+                      "customColumnWidthSetting": "20ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "Computador",
+                    "formatter": 0,
+                    "formatOptions": {
+                      "customColumnWidthSetting": "25ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "type",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Último Heartbeat",
+                    "formatter": 0,
+                    "formatOptions": {
+                      "customColumnWidthSetting": "20ch"
+                    },
+                    "numberFormat": {
+                      "unit": 24,
+                      "options": {
+                        "style": "decimal"
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "SO",
+                    "formatter": 0,
+                    "formatOptions": {
+                      "customColumnWidthSetting": "9ch"
+                    },
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 0
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "% CPU",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "greenRed",
+                      "customColumnWidthSetting": "14ch"
+                    },
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 0
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "% Mem",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "greenRed",
+                      "customColumnWidthSetting": "14ch"
+                    },
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 0
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "% OSDisk",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "greenRed",
+                      "customColumnWidthSetting": "14ch"
+                    },
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 0
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "resourceGroup",
+                    "formatter": 5
+                  }
+                ],
+                "rowLimit": 1000,
+                "filter": true,
+                "sortBy": [
+                  {
+                    "itemKey": "$gen_heatmap_% CPU_11",
+                    "sortOrder": 2
+                  }
+                ],
+                "labelSettings": [
+                  {
+                    "columnId": "MachineStatus",
+                    "label": "Status (Azure)"
+                  },
+                  {
+                    "columnId": "id",
+                    "label": "Recurso"
+                  },
+                  {
+                    "columnId": "RG",
+                    "label": "Resource Group"
+                  },
+                  {
+                    "columnId": "subscriptionId",
+                    "label": "Subscription"
+                  },
+                  {
+                    "columnId": "type",
+                    "label": "Tipo"
+                  }
+                ]
+              },
+              "sortBy": [
+                {
+                  "itemKey": "$gen_heatmap_% CPU_11",
+                  "sortOrder": 2
+                }
+              ]
+            },
+            "conditionalVisibility": {
+              "parameterName": "GridStyle",
+              "comparison": "isEqualTo",
+              "value": "flat"
+            },
+            "name": "Merge Grid - Flat"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "{\"version\":\"Merge/1.0\",\"merges\":[{\"id\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\",\"mergeType\":\"leftouter\",\"leftTable\":\"ARG Machine List\",\"rightTable\":\"Main VM State Grid - Base\",\"leftColumn\":\"id\",\"rightColumn\":\"_ResourceId\"}],\"projectRename\":[{\"originalName\":\"[ARG Machine List].MachineStatus\",\"mergedName\":\"MachineStatus\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].HeartbeatState\",\"mergedName\":\"Disponibilidade\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].PerfState\",\"mergedName\":\"Performance\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[ARG Machine List].id\",\"mergedName\":\"id\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[ARG Machine List].RG\",\"mergedName\":\"RG\",\"fromId\":\"unknown\"},{\"originalName\":\"[ARG Machine List].subscriptionId\",\"mergedName\":\"subscriptionId\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[ARG Machine List].resourceGroup\",\"mergedName\":\"resourceGroup\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].AzureVmScaleSetName\",\"mergedName\":\"VMSS Name\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].Computer\",\"mergedName\":\"Computador\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[ARG Machine List].type\",\"mergedName\":\"type\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].SecondsSinceLastHeartbeat\",\"mergedName\":\"Último Heartbeat\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].OperatingSystemFamily\",\"mergedName\":\"SO\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].CPUUsage\",\"mergedName\":\"% CPU\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].MemoryUsage\",\"mergedName\":\"% Mem\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].OSDiskUsedSpacePercentage\",\"mergedName\":\"% OSDisk\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].AzureSubscriptionId\"},{\"originalName\":\"[Main VM State Grid - Base]._ResourceId\"},{\"originalName\":\"[Main VM State Grid - Base].ResourceGroup\"}]}",
+              "size": 2,
+              "showRefreshButton": true,
+              "exportedParameters": [
+                {
+                  "fieldName": "id",
+                  "parameterName": "ResourceIDDrillDown",
+                  "parameterType": 1
+                },
+                {
+                  "fieldName": "Computador",
+                  "parameterName": "ComputerDrillDown",
+                  "parameterType": 1
+                }
+              ],
+              "showExportToExcel": true,
+              "queryType": 7,
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "$gen_group",
+                    "formatter": 13,
+                    "formatOptions": {
+                      "linkTarget": null,
+                      "showIcon": true
+                    }
+                  },
+                  {
+                    "columnMatch": "MachineStatus",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "VM running",
+                          "representation": "success",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Connected",
+                          "representation": "success",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "VM deallocated",
+                          "representation": "critical",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Disconnected",
+                          "representation": "critical",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "unknown",
+                          "text": "{0}{1}"
+                        }
+                      ],
+                      "customColumnWidthSetting": "20.7143ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "Disponibilidade",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Healthy",
+                          "representation": "success",
+                          "text": ""
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Unhealthy",
+                          "representation": "4",
+                          "text": ""
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "unknown",
+                          "text": "{0}{1}"
+                        }
+                      ],
+                      "customColumnWidthSetting": "19.1429ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "Performance",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Healthy",
+                          "representation": "success",
+                          "text": ""
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Unhealthy",
+                          "representation": "4",
+                          "text": ""
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "unknown",
+                          "text": "{0}{1}"
+                        }
+                      ],
+                      "customColumnWidthSetting": "17.2857ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "id",
+                    "formatter": 0,
+                    "formatOptions": {
+                      "customColumnWidthSetting": "19.1429ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "RG",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "subscriptionId",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "VMSS Name",
+                    "formatter": 5,
+                    "formatOptions": {
+                      "customColumnWidthSetting": "20ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "Computador",
+                    "formatter": 0,
+                    "formatOptions": {
+                      "customColumnWidthSetting": "25ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "type",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Último Heartbeat",
+                    "formatter": 0,
+                    "formatOptions": {
+                      "customColumnWidthSetting": "20ch"
+                    },
+                    "numberFormat": {
+                      "unit": 24,
+                      "options": {
+                        "style": "decimal"
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "SO",
+                    "formatter": 0,
+                    "formatOptions": {
+                      "customColumnWidthSetting": "9ch"
+                    },
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 0
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "% CPU",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "greenRed",
+                      "customColumnWidthSetting": "14ch"
+                    },
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 0
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "% Mem",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "greenRed",
+                      "customColumnWidthSetting": "14ch"
+                    },
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 0
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "% OSDisk",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "greenRed",
+                      "customColumnWidthSetting": "14ch"
+                    },
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 0
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "resourceGroup",
+                    "formatter": 5
+                  }
+                ],
+                "rowLimit": 1000,
+                "filter": true,
+                "hierarchySettings": {
+                  "treeType": 1,
+                  "groupBy": [
+                    "subscriptionId",
+                    "RG",
+                    "VMSS Name"
+                  ],
+                  "expandTopLevel": true
+                },
+                "labelSettings": [
+                  {
+                    "columnId": "MachineStatus",
+                    "label": "Status (Azure)"
+                  },
+                  {
+                    "columnId": "id",
+                    "label": "Recurso"
+                  },
+                  {
+                    "columnId": "RG",
+                    "label": "Resource Group"
+                  },
+                  {
+                    "columnId": "subscriptionId",
+                    "label": "Subscription"
+                  },
+                  {
+                    "columnId": "type",
+                    "label": "Tipo"
+                  }
+                ]
+              },
+              "sortBy": []
+            },
+            "conditionalVisibility": {
+              "parameterName": "GridStyle",
+              "comparison": "isEqualTo",
+              "value": "hierarchy"
+            },
+            "showPin": false,
+            "name": "Merge Grid - Hierarchy"
+          },
+          {
+            "type": 12,
+            "content": {
+              "version": "NotebookGroup/1.0",
+              "groupType": "editable",
+              "items": [
+                {
+                  "type": 1,
+                  "content": {
+                    "json": "## Detalhes do servidor {ComputerDrillDown}"
+                  },
+                  "name": "text - 0"
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "InsightsMetrics\r\n| where _ResourceId =~ \"{ResourceIDDrillDown}\"\r\n| where Namespace in ('Processor','Memory','LogicalDisk')\r\n| where Name in ('UtilizationPercentage','AvailableMB','FreeSpacePercentage')\r\n| extend MemorySizeMB = parse_json(Tags).['vm.azm.ms/memorySizeMB']\r\n| extend PercentMemoryUsed = 100 * Val / MemorySizeMB\r\n| extend Metric = case(Namespace == \"Processor\",toint(Val),Namespace == \"Memory\",toint(100 * Val/MemorySizeMB), Namespace == \"LogicalDisk\",toint(100-Val),4)\r\n| extend DiskInstance = iif(Namespace == \"LogicalDisk\",tostring(todynamic(Tags).[\"vm.azm.ms/mountId\"]),\"N/A\")\r\n| where DiskInstance == \"C:\" or DiskInstance == \"/\" or DiskInstance == \"N/A\"\r\n| extend Counter = case(Namespace == \"Processor\",\"Processador\",Namespace == \"Memory\",\"Memória\", Namespace == \"LogicalDisk\",\"SystemDrive (C: ou /)\",\"N/A\")\r\n| summarize {AggregationType:value}(Metric) by Counter, bin(TimeGenerated,{TimeRangeParam:grain})",
+                    "size": 1,
+                    "aggregation": 5,
+                    "showAnnotations": true,
+                    "title": "CPU, Memória e SystemDrive - Linha do tempo",
+                    "timeContextFromParameter": "TimeRangeParam",
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "crossComponentResources": [
+                      "{WorkspaceParam}"
+                    ],
+                    "visualization": "timechart",
+                    "chartSettings": {
+                      "ySettings": {
+                        "min": 0,
+                        "max": 100
+                      }
+                    }
+                  },
+                  "name": "Overview Perf Timeline",
+                  "styleSettings": {
+                    "showBorder": true
+                  }
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "InsightsMetrics\r\n| where _ResourceId =~ \"{ResourceIDDrillDown}\"\r\n| where Namespace == \"LogicalDisk\"\r\n| extend Instance = tostring(todynamic(Tags).[\"vm.azm.ms/mountId\"])\r\n| project Instance, Name, Val\r\n| evaluate pivot(Name,{AggregationType:value}(Val),Instance)",
+                    "size": 3,
+                    "showAnalytics": true,
+                    "title": "Informações de disco - faça scroll lateral para ver todos",
+                    "timeContextFromParameter": "TimeRangeParam",
+                    "showExportToExcel": true,
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "crossComponentResources": [
+                      "{WorkspaceParam}"
+                    ],
+                    "visualization": "table",
+                    "gridSettings": {
+                      "formatters": [
+                        {
+                          "columnMatch": "BytesPerSecond",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "palette": "blue"
+                          },
+                          "numberFormat": {
+                            "unit": 2,
+                            "options": {
+                              "style": "decimal"
+                            }
+                          }
+                        },
+                        {
+                          "columnMatch": "FreeSpaceMB",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "palette": "blue"
+                          },
+                          "numberFormat": {
+                            "unit": 4,
+                            "options": {
+                              "style": "decimal"
+                            }
+                          }
+                        },
+                        {
+                          "columnMatch": "FreeSpacePercentage",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "min": 0,
+                            "max": 100,
+                            "palette": "redGreen"
+                          },
+                          "numberFormat": {
+                            "unit": 0,
+                            "options": {
+                              "style": "decimal",
+                              "maximumFractionDigits": 0
+                            }
+                          }
+                        },
+                        {
+                          "columnMatch": "ReadBytesPerSecond",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "palette": "blue"
+                          },
+                          "numberFormat": {
+                            "unit": 2,
+                            "options": {
+                              "style": "decimal"
+                            }
+                          }
+                        },
+                        {
+                          "columnMatch": "ReadLatencyMs",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "palette": "blue"
+                          },
+                          "numberFormat": {
+                            "unit": 23,
+                            "options": {
+                              "style": "decimal"
+                            }
+                          }
+                        },
+                        {
+                          "columnMatch": "ReadsPerSecond",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "palette": "blue"
+                          }
+                        },
+                        {
+                          "columnMatch": "TransferLatencyMs",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "palette": "blue"
+                          },
+                          "numberFormat": {
+                            "unit": 23,
+                            "options": {
+                              "style": "decimal"
+                            }
+                          }
+                        },
+                        {
+                          "columnMatch": "TransfersPerSecond",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "palette": "blue"
+                          }
+                        },
+                        {
+                          "columnMatch": "WriteBytesPerSecond",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "palette": "blue"
+                          },
+                          "numberFormat": {
+                            "unit": 2,
+                            "options": {
+                              "style": "decimal"
+                            }
+                          }
+                        },
+                        {
+                          "columnMatch": "WriteLatencyMs",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "palette": "blue"
+                          },
+                          "numberFormat": {
+                            "unit": 23,
+                            "options": {
+                              "style": "decimal"
+                            }
+                          }
+                        },
+                        {
+                          "columnMatch": "WritesPerSecond",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "palette": "blue"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "name": "Disk Counters Drill down query"
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "InsightsMetrics\r\n| where _ResourceId =~ \"{ResourceIDDrillDown}\"\r\n| where Namespace == \"Network\"\r\n| extend Instance = tostring(todynamic(Tags).[\"vm.azm.ms/networkDeviceId\"])\r\n| project Instance, Name, Val\r\n| evaluate pivot(Name,{AggregationType:value}(Val),Instance)\r\n",
+                    "size": 3,
+                    "showAnalytics": true,
+                    "title": "Contadores de Rede",
+                    "timeContextFromParameter": "TimeRangeParam",
+                    "showExportToExcel": true,
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "crossComponentResources": [
+                      "{WorkspaceParam}"
+                    ],
+                    "visualization": "table",
+                    "gridSettings": {
+                      "formatters": [
+                        {
+                          "columnMatch": "ReadBytesPerSecond",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "palette": "blue"
+                          },
+                          "numberFormat": {
+                            "unit": 2,
+                            "options": {
+                              "style": "decimal"
+                            }
+                          }
+                        },
+                        {
+                          "columnMatch": "WriteBytesPerSecond",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "palette": "blue"
+                          },
+                          "numberFormat": {
+                            "unit": 2,
+                            "options": {
+                              "style": "decimal"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "name": "Network Info"
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "VMComputer\r\n| where _ResourceId =~ \"{ResourceIDDrillDown}\"\r\n| summarize arg_max(TimeGenerated, *) by _ResourceId \r\n| evaluate narrow()\r\n| project-away Row\r\n",
+                    "size": 0,
+                    "title": "Informações da VM",
+                    "timeContext": {
+                      "durationMs": 86400000
+                    },
+                    "showExportToExcel": true,
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "crossComponentResources": [
+                      "{WorkspaceParam}"
+                    ],
+                    "visualization": "table",
+                    "gridSettings": {
+                      "formatters": [
+                        {
+                          "columnMatch": "Value",
+                          "formatter": 1,
+                          "formatOptions": {
+                            "customColumnWidthSetting": "125ch"
+                          }
+                        }
+                      ],
+                      "filter": true,
+                      "labelSettings": [
+                        {
+                          "columnId": "Column",
+                          "label": "Propriedade"
+                        },
+                        {
+                          "columnId": "Value",
+                          "label": "Valor"
+                        }
+                      ]
+                    }
+                  },
+                  "name": "VM Details"
+                }
+              ]
+            },
+            "conditionalVisibility": {
+              "parameterName": "ResourceIDDrillDown",
+              "comparison": "isNotEqualTo"
+            },
+            "name": "SelectedServersDetails"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedMainTab",
+        "comparison": "isEqualTo",
+        "value": "Overview"
+      },
+      "name": "VMInsightsMainGrid"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 9,
+            "content": {
+              "version": "KqlParameterItem/1.0",
+              "parameters": [
+                {
+                  "id": "61caf256-0943-44b3-9bbe-ea65402394cf",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "AggregationType",
+                  "label": "Agregar por",
+                  "type": 10,
+                  "isRequired": true,
+                  "typeSettings": {
+                    "additionalResourceOptions": [],
+                    "showDefault": false
+                  },
+                  "jsonData": "[{\"value\":\"avg\",\"label\":\"Média\",\"selected\":true},\r\n{\"value\":\"max\",\"label\":\"Máximo\"},\r\n{\"value\":\"min\",\"label\":\"Mínimo\"}]",
+                  "timeContext": {
+                    "durationMs": 86400000
+                  },
+                  "value": "max"
+                },
+                {
+                  "id": "efb3b066-84ab-4b90-884a-6bafae04e3d6",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "OSTypeFilter",
+                  "label": "Sistema Operacional",
+                  "type": 10,
+                  "isRequired": true,
+                  "typeSettings": {
+                    "additionalResourceOptions": [],
+                    "showDefault": false
+                  },
+                  "jsonData": "[\r\n    {\"value\":\"'windows'\",\"label\":\"Windows\"},\r\n    {\"value\":\"'linux'\",\"label\":\"Linux\"},\r\n    {\"value\":\"'windows','linux'\",\"label\":\"Todos\",\"selected\":true}\r\n]",
+                  "timeContext": {
+                    "durationMs": 86400000
+                  }
+                },
+                {
+                  "id": "ace2a32d-4ac9-4623-adb1-4c23678e57b1",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "ServerNameFilter",
+                  "label": "Filtro Servidores",
+                  "type": 1,
+                  "description": "Utiliza a sintaxe de RegEx para filtrar por nome os servidores exibidos - Utilizar .* para todos",
+                  "isRequired": true,
+                  "value": ".*",
+                  "timeContext": {
+                    "durationMs": 86400000
+                  }
+                }
+              ],
+              "style": "above",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces"
+            },
+            "conditionalVisibility": {
+              "parameterName": "ShowFilters",
+              "comparison": "isEqualTo",
+              "value": "true"
+            },
+            "name": "Perf tab Filters"
+          },
+          {
+            "type": 12,
+            "content": {
+              "version": "NotebookGroup/1.0",
+              "groupType": "editable",
+              "title": "Selecione os Computadores",
+              "items": [
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "let AllComputers = VMComputer\r\n| where OperatingSystemFamily in ({OSTypeFilter:value}) and Computer matches regex @\"(?i){ServerNameFilter}\"\r\n    | distinct\r\n        Computer,\r\n        _ResourceId;\r\nAllComputers\r\n| order by Computer asc",
+                    "size": 2,
+                    "timeContextFromParameter": "TimeRangeParam",
+                    "exportMultipleValues": true,
+                    "exportedParameters": [
+                      {
+                        "fieldName": "_ResourceId",
+                        "parameterName": "ResourceIdPerfDrillDown",
+                        "parameterType": 1
+                      }
+                    ],
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "crossComponentResources": [
+                      "{WorkspaceParam}"
+                    ],
+                    "gridSettings": {
+                      "formatters": [
+                        {
+                          "columnMatch": "OperatingSystemFamily",
+                          "formatter": 5
+                        },
+                        {
+                          "columnMatch": "PhysicalMemoryMB",
+                          "formatter": 5
+                        },
+                        {
+                          "columnMatch": "Cpus",
+                          "formatter": 5
+                        },
+                        {
+                          "columnMatch": "_ResourceId",
+                          "formatter": 5
+                        },
+                        {
+                          "columnMatch": "AzureVmScaleSetName",
+                          "formatter": 5
+                        },
+                        {
+                          "columnMatch": "AzureSubscriptionId",
+                          "formatter": 5
+                        },
+                        {
+                          "columnMatch": "AzureResourceGroup",
+                          "formatter": 5
+                        }
+                      ],
+                      "filter": true
+                    }
+                  },
+                  "name": "Computer Picker - Perf"
+                },
+                {
+                  "type": 9,
+                  "content": {
+                    "version": "KqlParameterItem/1.0",
+                    "parameters": [
+                      {
+                        "id": "ea7cc5f7-badd-421d-a835-7fd370d7d79e",
+                        "version": "KqlParameterItem/1.0",
+                        "name": "ServerPerfFilter",
+                        "type": 1,
+                        "criteriaData": [
+                          {
+                            "criteriaContext": {
+                              "leftOperand": "ResourceIdPerfDrillDown",
+                              "operator": "isNotNull",
+                              "rightValType": "param",
+                              "resultValType": "static",
+                              "resultVal": "_ResourceId in ({ResourceIdPerfDrillDown})"
+                            }
+                          },
+                          {
+                            "criteriaContext": {
+                              "operator": "Default",
+                              "resultValType": "static",
+                              "resultVal": "true"
+                            }
+                          }
+                        ],
+                        "timeContext": {
+                          "durationMs": 86400000
+                        }
+                      }
+                    ],
+                    "style": "pills",
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces"
+                  },
+                  "conditionalVisibility": {
+                    "parameterName": "debugVisible",
+                    "comparison": "isEqualTo",
+                    "value": "true"
+                  },
+                  "name": "Server Perf Filter Parameter"
+                }
+              ],
+              "exportParameters": true
+            },
+            "customWidth": "25",
+            "name": "Perf Computer Selector"
+          },
+          {
+            "type": 12,
+            "content": {
+              "version": "NotebookGroup/1.0",
+              "groupType": "editable",
+              "items": [
+                {
+                  "type": 12,
+                  "content": {
+                    "version": "NotebookGroup/1.0",
+                    "groupType": "editable",
+                    "items": [
+                      {
+                        "type": 1,
+                        "content": {
+                          "json": "### Recursos com maior utilização - top 5"
+                        },
+                        "name": "text - 3"
+                      },
+                      {
+                        "type": 3,
+                        "content": {
+                          "version": "KqlItem/1.0",
+                          "query": "InsightsMetrics\r\n| where isnotempty(_ResourceId)\r\n| where {ServerPerfFilter}\r\n| where Namespace == \"Processor\"\r\n| summarize Metric = {AggregationType}(Val) by _ResourceId\r\n| top 5 by Metric",
+                          "size": 1,
+                          "title": "CPU",
+                          "timeContextFromParameter": "TimeRangeParam",
+                          "queryType": 0,
+                          "resourceType": "microsoft.operationalinsights/workspaces",
+                          "crossComponentResources": [
+                            "{WorkspaceParam}"
+                          ],
+                          "visualization": "table",
+                          "gridSettings": {
+                            "formatters": [
+                              {
+                                "columnMatch": "Metric",
+                                "formatter": 8,
+                                "formatOptions": {
+                                  "min": 0,
+                                  "max": 100,
+                                  "palette": "greenRed",
+                                  "customColumnWidthSetting": "15ch"
+                                },
+                                "numberFormat": {
+                                  "unit": 0,
+                                  "options": {
+                                    "style": "decimal",
+                                    "maximumFractionDigits": 0
+                                  }
+                                }
+                              }
+                            ],
+                            "labelSettings": [
+                              {
+                                "columnId": "_ResourceId",
+                                "label": "Servidor"
+                              },
+                              {
+                                "columnId": "Metric",
+                                "label": "% CPU"
+                              }
+                            ]
+                          }
+                        },
+                        "customWidth": "30",
+                        "name": "TopCPU",
+                        "styleSettings": {
+                          "showBorder": true
+                        }
+                      },
+                      {
+                        "type": 3,
+                        "content": {
+                          "version": "KqlItem/1.0",
+                          "query": "InsightsMetrics\r\n| where isnotempty(_ResourceId)\r\n| where {ServerPerfFilter}\r\n| where Namespace == \"Memory\" and Name == 'AvailableMB'\r\n| extend MemorySizeMB = parse_json(Tags).['vm.azm.ms/memorySizeMB']\r\n| extend PercentUsedMemory = toint(100 * Val/MemorySizeMB)\r\n| summarize Metric = {AggregationType}(PercentUsedMemory) by _ResourceId\r\n| top 5 by Metric",
+                          "size": 1,
+                          "title": "Memória",
+                          "timeContextFromParameter": "TimeRangeParam",
+                          "queryType": 0,
+                          "resourceType": "microsoft.operationalinsights/workspaces",
+                          "crossComponentResources": [
+                            "{WorkspaceParam}"
+                          ],
+                          "visualization": "table",
+                          "gridSettings": {
+                            "formatters": [
+                              {
+                                "columnMatch": "Metric",
+                                "formatter": 8,
+                                "formatOptions": {
+                                  "min": 0,
+                                  "max": 100,
+                                  "palette": "greenRed",
+                                  "customColumnWidthSetting": "15ch"
+                                },
+                                "numberFormat": {
+                                  "unit": 0,
+                                  "options": {
+                                    "style": "decimal",
+                                    "maximumFractionDigits": 0
+                                  }
+                                }
+                              }
+                            ],
+                            "labelSettings": [
+                              {
+                                "columnId": "_ResourceId",
+                                "label": "Servidor"
+                              },
+                              {
+                                "columnId": "Metric",
+                                "label": "% Memória"
+                              }
+                            ]
+                          }
+                        },
+                        "customWidth": "30",
+                        "name": "TopMemory",
+                        "styleSettings": {
+                          "showBorder": true
+                        }
+                      },
+                      {
+                        "type": 3,
+                        "content": {
+                          "version": "KqlItem/1.0",
+                          "query": "InsightsMetrics\r\n| where isnotempty(_ResourceId)\r\n| where {ServerPerfFilter}\r\n| where Namespace == \"LogicalDisk\" and Name == 'FreeSpacePercentage'\r\n| extend Instance = tostring(todynamic(Tags).[\"vm.azm.ms/mountId\"])\r\n| extend UsedSpace = toint(100 - Val)\r\n| summarize Metric = {AggregationType}(UsedSpace) by _ResourceId, Instance\r\n| top 5 by Metric",
+                          "size": 1,
+                          "title": "Discos",
+                          "timeContextFromParameter": "TimeRangeParam",
+                          "queryType": 0,
+                          "resourceType": "microsoft.operationalinsights/workspaces",
+                          "crossComponentResources": [
+                            "{WorkspaceParam}"
+                          ],
+                          "visualization": "table",
+                          "gridSettings": {
+                            "formatters": [
+                              {
+                                "columnMatch": "Metric",
+                                "formatter": 8,
+                                "formatOptions": {
+                                  "min": 0,
+                                  "max": 100,
+                                  "palette": "greenRed",
+                                  "customColumnWidthSetting": "15ch"
+                                },
+                                "numberFormat": {
+                                  "unit": 0,
+                                  "options": {
+                                    "style": "decimal",
+                                    "maximumFractionDigits": 0
+                                  }
+                                }
+                              }
+                            ],
+                            "labelSettings": [
+                              {
+                                "columnId": "_ResourceId",
+                                "label": "Servidor"
+                              },
+                              {
+                                "columnId": "Metric",
+                                "label": "% Disco"
+                              }
+                            ]
+                          }
+                        },
+                        "customWidth": "40",
+                        "name": "TopDiskUsage",
+                        "styleSettings": {
+                          "showBorder": true
+                        }
+                      }
+                    ]
+                  },
+                  "name": "TopResources - Copy"
+                },
+                {
+                  "type": 12,
+                  "content": {
+                    "version": "NotebookGroup/1.0",
+                    "groupType": "editable",
+                    "items": [
+                      {
+                        "type": 1,
+                        "content": {
+                          "json": "### Recursos com menor utilização - bottom 5"
+                        },
+                        "name": "text - 3"
+                      },
+                      {
+                        "type": 3,
+                        "content": {
+                          "version": "KqlItem/1.0",
+                          "query": "InsightsMetrics\r\n| where isnotempty(_ResourceId)\r\n| where {ServerPerfFilter}\r\n| where Namespace == \"Processor\"\r\n| summarize Metric = {AggregationType}(Val) by _ResourceId\r\n| top 5 by Metric asc",
+                          "size": 1,
+                          "title": "CPU",
+                          "timeContextFromParameter": "TimeRangeParam",
+                          "queryType": 0,
+                          "resourceType": "microsoft.operationalinsights/workspaces",
+                          "crossComponentResources": [
+                            "{WorkspaceParam}"
+                          ],
+                          "visualization": "table",
+                          "gridSettings": {
+                            "formatters": [
+                              {
+                                "columnMatch": "Metric",
+                                "formatter": 8,
+                                "formatOptions": {
+                                  "min": 0,
+                                  "max": 100,
+                                  "palette": "greenRed",
+                                  "customColumnWidthSetting": "15ch"
+                                },
+                                "numberFormat": {
+                                  "unit": 0,
+                                  "options": {
+                                    "style": "decimal",
+                                    "maximumFractionDigits": 0
+                                  }
+                                }
+                              }
+                            ],
+                            "labelSettings": [
+                              {
+                                "columnId": "_ResourceId",
+                                "label": "Servidor"
+                              },
+                              {
+                                "columnId": "Metric",
+                                "label": "% CPU"
+                              }
+                            ]
+                          }
+                        },
+                        "customWidth": "30",
+                        "name": "TopCPU",
+                        "styleSettings": {
+                          "showBorder": true
+                        }
+                      },
+                      {
+                        "type": 3,
+                        "content": {
+                          "version": "KqlItem/1.0",
+                          "query": "InsightsMetrics\r\n| where isnotempty(_ResourceId)\r\n| where {ServerPerfFilter}\r\n| where Namespace == \"Memory\" and Name == 'AvailableMB'\r\n| extend MemorySizeMB = parse_json(Tags).['vm.azm.ms/memorySizeMB']\r\n| extend PercentUsedMemory = toint(100 * Val/MemorySizeMB)\r\n| summarize Metric = {AggregationType}(PercentUsedMemory) by _ResourceId\r\n| top 5 by Metric asc",
+                          "size": 1,
+                          "title": "Memória",
+                          "timeContextFromParameter": "TimeRangeParam",
+                          "queryType": 0,
+                          "resourceType": "microsoft.operationalinsights/workspaces",
+                          "crossComponentResources": [
+                            "{WorkspaceParam}"
+                          ],
+                          "visualization": "table",
+                          "gridSettings": {
+                            "formatters": [
+                              {
+                                "columnMatch": "Metric",
+                                "formatter": 8,
+                                "formatOptions": {
+                                  "min": 0,
+                                  "max": 100,
+                                  "palette": "greenRed",
+                                  "customColumnWidthSetting": "15ch"
+                                },
+                                "numberFormat": {
+                                  "unit": 0,
+                                  "options": {
+                                    "style": "decimal",
+                                    "maximumFractionDigits": 0
+                                  }
+                                }
+                              }
+                            ],
+                            "labelSettings": [
+                              {
+                                "columnId": "_ResourceId",
+                                "label": "Servidor"
+                              },
+                              {
+                                "columnId": "Metric",
+                                "label": "% Memória"
+                              }
+                            ]
+                          }
+                        },
+                        "customWidth": "30",
+                        "name": "TopMemory",
+                        "styleSettings": {
+                          "showBorder": true
+                        }
+                      },
+                      {
+                        "type": 3,
+                        "content": {
+                          "version": "KqlItem/1.0",
+                          "query": "InsightsMetrics\r\n| where isnotempty(_ResourceId)\r\n| where {ServerPerfFilter}\r\n| where Namespace == \"LogicalDisk\" and Name == 'FreeSpacePercentage'\r\n| extend Instance = tostring(todynamic(Tags).[\"vm.azm.ms/mountId\"])\r\n| extend UsedSpace = toint(100 - Val)\r\n| summarize Metric = {AggregationType}(UsedSpace) by _ResourceId, Instance\r\n| top 5 by Metric asc",
+                          "size": 1,
+                          "title": "Discos",
+                          "timeContextFromParameter": "TimeRangeParam",
+                          "queryType": 0,
+                          "resourceType": "microsoft.operationalinsights/workspaces",
+                          "crossComponentResources": [
+                            "{WorkspaceParam}"
+                          ],
+                          "visualization": "table",
+                          "gridSettings": {
+                            "formatters": [
+                              {
+                                "columnMatch": "Metric",
+                                "formatter": 8,
+                                "formatOptions": {
+                                  "min": 0,
+                                  "max": 100,
+                                  "palette": "greenRed",
+                                  "customColumnWidthSetting": "15ch"
+                                },
+                                "numberFormat": {
+                                  "unit": 0,
+                                  "options": {
+                                    "style": "decimal",
+                                    "maximumFractionDigits": 0
+                                  }
+                                }
+                              }
+                            ],
+                            "labelSettings": [
+                              {
+                                "columnId": "_ResourceId",
+                                "label": "Servidor"
+                              },
+                              {
+                                "columnId": "Metric",
+                                "label": "% Disco"
+                              }
+                            ]
+                          }
+                        },
+                        "customWidth": "40",
+                        "name": "TopDiskUsage",
+                        "styleSettings": {
+                          "showBorder": true
+                        }
+                      }
+                    ]
+                  },
+                  "name": "TopResources"
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "InsightsMetrics\r\n| where {ServerPerfFilter}\r\n| where Namespace == \"Processor\" and Name == 'UtilizationPercentage'\r\n| summarize Media = avg(Val), Max = max(Val), Min = min(Val) by  bin(TimeGenerated,{TimeRangeParam:grain})\r\n",
+                    "size": 1,
+                    "aggregation": 5,
+                    "showAnnotations": true,
+                    "title": "% CPU - Geral",
+                    "timeContextFromParameter": "TimeRangeParam",
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "crossComponentResources": [
+                      "{WorkspaceParam}"
+                    ],
+                    "visualization": "timechart",
+                    "chartSettings": {
+                      "seriesLabelSettings": [
+                        {
+                          "seriesName": "Media",
+                          "color": "orange"
+                        },
+                        {
+                          "seriesName": "Max",
+                          "color": "redBright"
+                        },
+                        {
+                          "seriesName": "Min",
+                          "color": "green"
+                        }
+                      ]
+                    }
+                  },
+                  "customWidth": "50",
+                  "name": "CPU Overall Line Chart",
+                  "styleSettings": {
+                    "showBorder": true
+                  }
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "InsightsMetrics\r\n| where {ServerPerfFilter}\r\n| where Namespace == \"Memory\" and Name == 'AvailableMB'\r\n| extend MemorySizeMB = parse_json(Tags).['vm.azm.ms/memorySizeMB']\r\n| extend PercentUsedMemory = toint(100 * Val/MemorySizeMB)\r\n| summarize Media = avg(PercentUsedMemory) , Max = max(PercentUsedMemory), Min = min(PercentUsedMemory) by bin(TimeGenerated,{TimeRangeParam:grain})\r\n",
+                    "size": 1,
+                    "aggregation": 5,
+                    "showAnnotations": true,
+                    "title": "% Memória - Geral",
+                    "timeContextFromParameter": "TimeRangeParam",
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "crossComponentResources": [
+                      "{WorkspaceParam}"
+                    ],
+                    "visualization": "timechart",
+                    "chartSettings": {
+                      "seriesLabelSettings": [
+                        {
+                          "seriesName": "Media",
+                          "color": "orange"
+                        },
+                        {
+                          "seriesName": "Max",
+                          "color": "redBright"
+                        },
+                        {
+                          "seriesName": "Min",
+                          "color": "green"
+                        }
+                      ]
+                    }
+                  },
+                  "customWidth": "50",
+                  "name": "Memory Overall Line Chart",
+                  "styleSettings": {
+                    "showBorder": true
+                  }
+                }
+              ]
+            },
+            "customWidth": "75",
+            "name": "Perf Results"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedMainTab",
+        "comparison": "isEqualTo",
+        "value": "Perf"
+      },
+      "name": "Performance and Statistics Group"
+    }
+  ],
+  "fallbackResourceIds": [
+    "Azure Monitor"
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}
