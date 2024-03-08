@@ -254,17 +254,17 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "union * \r\n| where _IsBillable == true\r\n| extend ComputerName = tolower(tostring(split(Computer, '.')[0]))\r\n| where ComputerName != \"\" and ComputerName !contains \"deprecated\"\r\n| summarize TotalIngestBytes=sum(_BilledSize) by ComputerName\r\n| top 5 by TotalIngestBytes desc\r\n",
+              "query": "union * \r\n| where _IsBillable == true\r\n| where isnotempty(_ResourceId)\r\n| summarize TotalIngestBytes=sum(_BilledSize) by _ResourceId\r\n| top 5 by TotalIngestBytes desc\r\n",
               "size": 1,
               "showAnalytics": true,
-              "title": "Top 5 - Consumo de dados no workspace por computador (últimas 24 horas)",
+              "title": "Top 5 - Consumo de dados no workspace por recurso (últimas 24 horas)",
               "timeContext": {
                 "durationMs": 86400000
               },
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
               "crossComponentResources": [
-                "{ResourceUriDrillDown}"
+                "{Workspaces}"
               ],
               "gridSettings": {
                 "formatters": [
@@ -285,7 +285,7 @@
               }
             },
             "customWidth": "50",
-            "name": "Top 5 Computers"
+            "name": "Top 5 Resources"
           },
           {
             "type": 3,
