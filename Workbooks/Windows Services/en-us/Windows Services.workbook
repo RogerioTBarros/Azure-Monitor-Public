@@ -1,0 +1,568 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "crossComponentResources": [
+          "{LAWorkspace}"
+        ],
+        "parameters": [
+          {
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "label": "Time range",
+            "type": 4,
+            "isRequired": true,
+            "value": {
+              "durationMs": 259200000
+            },
+            "typeSettings": {
+              "selectableValues": [
+                {
+                  "durationMs": 300000
+                },
+                {
+                  "durationMs": 900000
+                },
+                {
+                  "durationMs": 1800000
+                },
+                {
+                  "durationMs": 3600000
+                },
+                {
+                  "durationMs": 14400000
+                },
+                {
+                  "durationMs": 43200000
+                },
+                {
+                  "durationMs": 86400000
+                },
+                {
+                  "durationMs": 172800000
+                },
+                {
+                  "durationMs": 259200000
+                },
+                {
+                  "durationMs": 604800000
+                },
+                {
+                  "durationMs": 1209600000
+                },
+                {
+                  "durationMs": 2419200000
+                },
+                {
+                  "durationMs": 2592000000
+                },
+                {
+                  "durationMs": 5184000000
+                },
+                {
+                  "durationMs": 7776000000
+                }
+              ],
+              "allowCustom": true
+            },
+            "id": "02fd3848-adcb-46b2-9d87-45f610e6505a"
+          },
+          {
+            "id": "b86dc350-568c-47ed-aa7c-ca15487db890",
+            "version": "KqlParameterItem/1.0",
+            "name": "LAWorkspace",
+            "label": "Workspace",
+            "type": 5,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "resources\r\n| where type =~ \"Microsoft.Insights/dataCollectionRules\"\r\n| mv-expand Dataflows = properties.dataFlows\r\n| extend streams = Dataflows.streams\r\n| where streams contains \"Microsoft-Configuration\"\r\n| mv-expand Destinations = properties.destinations\r\n| where Destinations contains \"logAnalytics\"\r\n| mv-expand Workspaces = Destinations.logAnalytics\r\n| extend WorkspaceID = tostring(Workspaces.workspaceResourceId)\r\n| project WorkspaceID\r\n| extend subscriptionId = extract(@\"(?i)^\\/subscriptions\\/(.+?)\\/.*\",1,WorkspaceID)",
+            "crossComponentResources": [
+              "value::tenant"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "showDefault": false
+            },
+            "queryType": 1,
+            "resourceType": "microsoft.resources/tenants",
+            "value": [
+              "value::all"
+            ]
+          },
+          {
+            "id": "98416c61-6e49-4155-9b7d-0908d49d2815",
+            "version": "KqlParameterItem/1.0",
+            "name": "VirtualMachines",
+            "label": "Virtual Machines",
+            "type": 5,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "ConfigurationData\r\n| where ConfigDataType == \"WindowsServices\"\r\n| union withsource=\"Table\" (ConfigurationChange\r\n| where ConfigChangeType == \"WindowsServices\")\r\n| distinct _ResourceId",
+            "crossComponentResources": [
+              "{LAWorkspace}"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "showDefault": false
+            },
+            "timeContext": {
+              "durationMs": 0
+            },
+            "timeContextFromParameter": "TimeRange",
+            "queryType": 0,
+            "resourceType": "microsoft.operationalinsights/workspaces",
+            "value": [
+              "value::all"
+            ]
+          }
+        ],
+        "style": "above",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces"
+      },
+      "name": "parameters"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let basequery = ConfigurationData\r\n| where ConfigDataType == \"WindowsServices\"\r\n| union withsource=\"Table\" (ConfigurationChange\r\n    | where ConfigChangeType == \"WindowsServices\")\r\n| where _ResourceId in ({VirtualMachines})\r\n| summarize arg_max(TimeGenerated, *) by _ResourceId, SvcName, SvcStartupType;\r\nbasequery\r\n| project _ResourceId, SvcStartupType\r\n| evaluate pivot(SvcStartupType)\r\n| extend\r\n    Auto = iif(isempty(Auto), 0, Auto),\r\n    Disabled = iif(isempty(Disabled), 0, Disabled),\r\n    Manual = iif(isempty(Manual), 0, Manual)\r\n| extend Services = Auto + Disabled + Manual\r\n| extend Total = Services\r\n| extend Computer = extract(@\"(?i).*\\/Microsoft.Compute\\/VirtualMachines\\/(.*)\",1,_ResourceId)\r\n| join kind=inner (basequery\r\n| where SvcStartupType == \"Auto\"\r\n| project _ResourceId, SvcState\r\n| evaluate pivot(SvcState)) on _ResourceId\r\n| project-away _ResourceId1",
+        "size": 3,
+        "title": "Virtual Machines - Click a tile for details",
+        "timeContextFromParameter": "TimeRange",
+        "exportedParameters": [
+          {
+            "fieldName": "_ResourceId",
+            "parameterName": "VMDrillDown",
+            "parameterType": 1
+          },
+          {
+            "fieldName": "Computer",
+            "parameterName": "ComputerDrillDown",
+            "parameterType": 1
+          }
+        ],
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{LAWorkspace}"
+        ],
+        "visualization": "tiles",
+        "gridSettings": {
+          "formatters": [
+            {
+              "columnMatch": "Auto",
+              "formatter": 5
+            },
+            {
+              "columnMatch": "Disabled",
+              "formatter": 5
+            },
+            {
+              "columnMatch": "Manual",
+              "formatter": 5
+            },
+            {
+              "columnMatch": "Total",
+              "formatter": 22,
+              "formatOptions": {
+                "compositeBarSettings": {
+                  "labelText": "Auto: [\"Auto\"], Manual: [\"Manual\"], Disabled: [\"Disabled\"]",
+                  "columnSettings": [
+                    {
+                      "columnName": "Auto",
+                      "color": "green"
+                    },
+                    {
+                      "columnName": "Manual",
+                      "color": "blue"
+                    },
+                    {
+                      "columnName": "Disabled",
+                      "color": "gray"
+                    }
+                  ]
+                },
+                "customColumnWidthSetting": "150px"
+              }
+            }
+          ],
+          "filter": true,
+          "labelSettings": [
+            {
+              "columnId": "Total",
+              "label": "Services (Startup Mode)"
+            }
+          ]
+        },
+        "sortBy": [],
+        "tileSettings": {
+          "titleContent": {
+            "columnMatch": "_ResourceId",
+            "formatter": 13,
+            "formatOptions": {
+              "linkTarget": null,
+              "showIcon": true
+            }
+          },
+          "leftContent": {
+            "columnMatch": "Total",
+            "formatter": 22,
+            "formatOptions": {
+              "compositeBarSettings": {
+                "labelText": "Auto: [\"Auto\"], Manual: [\"Manual\"], Disabled: [\"Disabled\"]",
+                "columnSettings": [
+                  {
+                    "columnName": "Auto",
+                    "color": "green"
+                  },
+                  {
+                    "columnName": "Manual",
+                    "color": "lightBlue"
+                  },
+                  {
+                    "columnName": "Disabled",
+                    "color": "gray"
+                  }
+                ],
+                "noRowsScaling": true
+              }
+            },
+            "numberFormat": {
+              "unit": 17,
+              "options": {
+                "style": "decimal",
+                "maximumFractionDigits": 2,
+                "maximumSignificantDigits": 3
+              }
+            }
+          },
+          "secondaryContent": {
+            "columnMatch": "Auto",
+            "formatter": 22,
+            "formatOptions": {
+              "compositeBarSettings": {
+                "labelText": "Automatic - Running: [\"Running\"], Stopped: [\"Stopped\"]",
+                "columnSettings": [
+                  {
+                    "columnName": "Running",
+                    "color": "green"
+                  },
+                  {
+                    "columnName": "Stopped",
+                    "color": "redBright"
+                  }
+                ],
+                "noRowsScaling": true
+              }
+            }
+          },
+          "showBorder": true,
+          "size": "auto"
+        }
+      },
+      "name": "VM Tiles"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "title": "Services State for {ComputerDrillDown}",
+        "items": [
+          {
+            "type": 9,
+            "content": {
+              "version": "KqlParameterItem/1.0",
+              "crossComponentResources": [
+                "{LAWorkspace}"
+              ],
+              "parameters": [
+                {
+                  "id": "94e447ff-9bac-404a-98be-d95e2a7c1df8",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "StartupType",
+                  "type": 10,
+                  "isRequired": true,
+                  "typeSettings": {
+                    "additionalResourceOptions": [],
+                    "showDefault": false
+                  },
+                  "jsonData": "[{ \"value\": \"SvcStartupType == 'Auto'\", \"label\": \"Auto\" },{ \"value\": \"SvcStartupType == 'Manual'\", \"label\": \"Manual\"},{ \"value\": \"SvcStartupType == 'Disabled'\", \"label\": \"Disabled\"},{\"value\":\"SvcStartupType == 'Auto' or SvcStartupType == 'Manual' or SvcStartupType == 'Disabled'\", \"label\":\"All\", \"selected\":true }]",
+                  "timeContext": {
+                    "durationMs": 86400000
+                  }
+                },
+                {
+                  "id": "44ea3624-fc23-4009-83b5-5faa035a68ad",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "ServiceState",
+                  "label": "Service State",
+                  "type": 10,
+                  "isRequired": true,
+                  "typeSettings": {
+                    "additionalResourceOptions": []
+                  },
+                  "jsonData": "[{ \"value\": \"SvcState == 'Running'\", \"label\": \"Running\" }, { \"value\": \"SvcState == 'Stopped'\", \"label\": \"Stopped\"},{\"value\":\"SvcState == 'Running' or SvcState == 'Stopped'\", \"label\":\"All\", \"selected\":true }]",
+                  "timeContext": {
+                    "durationMs": 86400000
+                  }
+                },
+                {
+                  "id": "f0a59899-eca2-4bae-bbb4-fcd9e0ba934e",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "ServiceFilter",
+                  "label": "Services Filter",
+                  "type": 2,
+                  "isRequired": true,
+                  "multiSelect": true,
+                  "quote": "'",
+                  "delimiter": ",",
+                  "query": "let basequery = ConfigurationData\r\n| where ConfigDataType == \"WindowsServices\"\r\n| union withsource=\"Table\" (ConfigurationChange\r\n    | where ConfigChangeType == \"WindowsServices\")\r\n| where _ResourceId =~ \"{VMDrillDown}\"\r\n| where {StartupType}\r\n| where {ServiceState}\r\n| summarize arg_max(TimeGenerated, *) by _ResourceId, SvcName, SvcStartupType;\r\nbasequery\r\n| distinct SvcName\r\n| order by SvcName asc\r\n\r\n",
+                  "crossComponentResources": [
+                    "{LAWorkspace}"
+                  ],
+                  "typeSettings": {
+                    "additionalResourceOptions": [
+                      "value::all"
+                    ],
+                    "showDefault": false
+                  },
+                  "timeContext": {
+                    "durationMs": 0
+                  },
+                  "timeContextFromParameter": "TimeRange",
+                  "queryType": 0,
+                  "resourceType": "microsoft.operationalinsights/workspaces",
+                  "value": [
+                    "value::all"
+                  ]
+                }
+              ],
+              "style": "above",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces"
+            },
+            "name": "parameters - 1"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let basequery = ConfigurationData\r\n| where ConfigDataType == \"WindowsServices\"\r\n| union withsource=\"Table\" (ConfigurationChange\r\n    | where ConfigChangeType == \"WindowsServices\")\r\n| where _ResourceId =~ \"{VMDrillDown}\"\r\n| where {StartupType}\r\n| where {ServiceState}\r\n| where SvcName in ({ServiceFilter})\r\n| summarize arg_max(TimeGenerated, *) by _ResourceId, SvcName, SvcStartupType;\r\nbasequery\r\n| summarize count() by SvcStartupType",
+              "size": 4,
+              "title": "Services by Startup Type",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{LAWorkspace}"
+              ],
+              "visualization": "piechart",
+              "chartSettings": {
+                "seriesLabelSettings": [
+                  {
+                    "seriesName": "Manual",
+                    "color": "lightBlue"
+                  },
+                  {
+                    "seriesName": "Auto",
+                    "color": "green"
+                  },
+                  {
+                    "seriesName": "Disabled",
+                    "color": "gray"
+                  }
+                ]
+              }
+            },
+            "customWidth": "50",
+            "name": "Startup Type piechart",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let basequery = ConfigurationData\r\n| where ConfigDataType == \"WindowsServices\"\r\n| union withsource=\"Table\" (ConfigurationChange\r\n    | where ConfigChangeType == \"WindowsServices\")\r\n| where _ResourceId =~ \"{VMDrillDown}\"\r\n| where {StartupType}\r\n| where {ServiceState}\r\n| where SvcName in ({ServiceFilter})\r\n| summarize arg_max(TimeGenerated, *) by _ResourceId, SvcName, SvcStartupType;\r\nbasequery\r\n| summarize count() by SvcState",
+              "size": 4,
+              "title": "Services by State",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{LAWorkspace}"
+              ],
+              "visualization": "piechart",
+              "chartSettings": {
+                "seriesLabelSettings": [
+                  {
+                    "seriesName": "Stopped",
+                    "color": "redBright"
+                  },
+                  {
+                    "seriesName": "Running",
+                    "color": "green"
+                  }
+                ]
+              }
+            },
+            "customWidth": "50",
+            "name": "Service State Piechart",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "ConfigurationData\n| where ConfigDataType == \"WindowsServices\"\n| union withsource=\"Table\" (ConfigurationChange\n| where ConfigChangeType == \"WindowsServices\")\n| where _ResourceId =~ \"{VMDrillDown}\"\n| summarize arg_max(TimeGenerated,*) by _ResourceId, SvcName\n| where {StartupType}\n| where {ServiceState}\n| where SvcName in ({ServiceFilter})\n| project _ResourceId, SvcDisplayName, SvcName, SvcState, SvcStartupType, TimeGenerated\n| order by SvcDisplayName asc\n\n",
+              "size": 3,
+              "showAnalytics": true,
+              "title": "Services List",
+              "timeContextFromParameter": "TimeRange",
+              "showExportToExcel": true,
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "/subscriptions/fd40b8a2-53c9-4138-80d5-3c2d0f82b702/resourcegroups/rogeriolab-mgmt/providers/microsoft.operationalinsights/workspaces/rogeriolab-law"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "_ResourceId",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "SvcState",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Running",
+                          "representation": "success",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Stopped",
+                          "representation": "4",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "unknown",
+                          "text": "{0}{1}"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "SvcStartupType",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Auto",
+                          "representation": "dot-green",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Manual",
+                          "representation": "dot-lightBlue",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Disabled",
+                          "representation": "dot-gray",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "question",
+                          "text": "{0}{1}"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "rowLimit": 1000,
+                "filter": true,
+                "sortBy": [
+                  {
+                    "itemKey": "SvcDisplayName",
+                    "sortOrder": 1
+                  }
+                ],
+                "labelSettings": [
+                  {
+                    "columnId": "_ResourceId",
+                    "label": "Computer"
+                  },
+                  {
+                    "columnId": "SvcDisplayName",
+                    "label": "Service Display Name"
+                  },
+                  {
+                    "columnId": "SvcName",
+                    "label": "Service Name"
+                  },
+                  {
+                    "columnId": "SvcState",
+                    "label": "State"
+                  },
+                  {
+                    "columnId": "SvcStartupType",
+                    "label": "Startup Type"
+                  },
+                  {
+                    "columnId": "TimeGenerated",
+                    "label": "Last Report"
+                  }
+                ]
+              },
+              "sortBy": [
+                {
+                  "itemKey": "SvcDisplayName",
+                  "sortOrder": 1
+                }
+              ]
+            },
+            "name": "Services List"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "VMDrillDown",
+        "comparison": "isNotEqualTo"
+      },
+      "name": "ServiceDetails - VM"
+    }
+  ],
+  "fallbackResourceIds": [
+    "Azure Monitor"
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}
