@@ -236,7 +236,7 @@ foreach ($subscriptionId in $ResourcesBySubscription.keys)
     foreach ($VMResourceID in $VMResourceIDs) {
         $msg = "Processando VM: " + $VMResourceID
         write-output $msg
-        $VM = Get-AzResource -ResourceId $VMResourceID
+        $VM = Get-AzVM -ResourceId $VMResourceID
         write-host "`nProcessando VM: " $VM.Name -ForegroundColor Blue
         
         
