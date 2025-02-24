@@ -16,12 +16,12 @@ Exemplo de arquivo de configuração (`MigrateAgentsToAMAConfig.json`):
 {
   "inputFileName": ".\\VMAgentMigrationInput.txt",
   "identitiesList": [
-    "/subscriptions/fa9678e8-6b00-4b3c-9a0d-465e5faff9ab/resourceGroups/monitoringresources-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/AzureVMMonitoring-MI-BrazilSouth-VSNova",
-    "/subscriptions/56828eff-05b6-44cb-ae7f-3c007e40d164/resourceGroups/rg-identities/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mi-VMMonitoring-vsold-brazilsouth"
+    "/subscriptions/222-111-222-333-444/resourceGroups/monitoringresources-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/AzureVMMonitoring-MI-BrazilSouth-VSNova",
+    "/subscriptions/111-222-333-444/resourceGroups/rg-identities/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mi-VMMonitoring-vsold-brazilsouth"
   ],
   "resourcesLocation": "brazilsouth",
   "dcrList": [
-    "/subscriptions/fa9678e8-6b00-4b3c-9a0d-465e5faff9ab/resourceGroups/rogeriolab.monitoring.rg/providers/Microsoft.Insights/dataCollectionRules/MSVMI-VMDefault-DCR"
+    "/subscriptions/222-111-222-333-444/resourceGroups/rogeriolab.monitoring.rg/providers/Microsoft.Insights/dataCollectionRules/MSVMI-VMDefault-DCR"
   ]
 }
 ```
