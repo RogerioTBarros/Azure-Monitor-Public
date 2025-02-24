@@ -25,6 +25,12 @@ Exemplo de arquivo de configuração (`MigrateAgentsToAMAConfig.json`):
   ]
 }
 ```
+### Detalhamento das configurações:
+* `inputFileName:` Caminho para o arquivo de entrada que contém os IDs de recursos das VMs a serem processadas.
+* `identitiesList:` Lista de IDs de recursos das identidades gerenciadas atribuídas pelo usuário (User Assigned Managed Identities) que serão associadas às VMs.
+resourcesLocation: Região onde os recursos estão localizados. Apenas VMs nesta região serão processadas.
+* `dcrList:` Lista de IDs de recursos das regras de coleta de dados (DCRs) que serão associadas às VMs.
+
 
 ### Arquivo de Entrada
 
