@@ -1,0 +1,3 @@
+/subscriptions/222-111-222-333-444/resourceGroups/RogerioLab.VMs.RG/providers/Microsoft.Compute/virtualMachines/Win-brz-002
+/subscriptions/222-111-222-333-444/resourceGroups/RogerioLab.VMs.RG/providers/Microsoft.Compute/virtualMachines/WindowsBrazilSouth-001
+/subscriptions/111-222-333-444/resourcegroups/RogerioLab.VS.VMs.RG/providers/Microsoft.Compute/virtualMachines/win-vsold-001
