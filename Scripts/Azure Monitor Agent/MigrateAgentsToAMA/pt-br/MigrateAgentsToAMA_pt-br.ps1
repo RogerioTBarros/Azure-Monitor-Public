@@ -7,7 +7,12 @@
 
 # Carregar configurações do arquivo de configuração
 $configFilePath = ".\MigrateAgentsToAMAConfig.json"
-$config = Get-Content $configFilePath | ConvertFrom-Json
+if (Test-Path $configFilePath) {
+    $config = Get-Content $configFilePath | ConvertFrom-Json
+} else {
+    Write-Error "Arquivo de configuração não encontrado: $configFilePath"
+    exit
+}
 
 # variáveis
 $InputFileName = $config.inputFileName
