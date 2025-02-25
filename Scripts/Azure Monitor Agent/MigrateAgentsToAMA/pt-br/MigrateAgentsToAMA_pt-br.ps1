@@ -78,11 +78,12 @@ function DeployAMAExtension {
         [string]$AgentUAMID
     )
 
-    $Location = $VMObject.Location
-    $VMState = get-AzVM -ResourceId $VMObject.ResourceId -Status
 
-    if ($VMObject.Properties.ProvisioningState -eq "Succeeded" -and $VMState.statuses[1].code -eq "PowerState/running") {
-        $OsType = $VMObject.Properties.storageProfile.osDisk.osType
+    $Location = $VMObject.Location
+    $VMState = get-AzVM -ResourceId $VMObject.Id -Status
+
+    if ($VMObject.ProvisioningState -eq "Succeeded" -and $VMState.statuses[1].code -eq "PowerState/running") {
+        $OsType = $VMObject.storageProfile.osDisk.osType
 
         if ($OsType -eq "Windows") {
             $ExtensionName = "AzureMonitorWindowsAgent"

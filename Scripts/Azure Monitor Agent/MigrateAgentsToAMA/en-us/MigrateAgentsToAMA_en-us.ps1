@@ -1,11 +1,11 @@
 ####################################################################
 # Script: MigrateAgentsToAMA_en-us.ps1
 # Version: 1.0
-# Author: Rogerio T. Barros (github.com/rogeriotbarros)
-# Created on: 21/02/2025
+# Author: Rogerio T. Barros (rogerio.barros@hotmail.com)
+# Created on: 02/21/2025
 ####################################################################
 
-# Load settings from the configuration file
+# Load configuration from the configuration file
 $configFilePath = ".\MigrateAgentsToAMAConfig.json"
 if (Test-Path $configFilePath) {
     $config = Get-Content $configFilePath | ConvertFrom-Json
@@ -29,6 +29,7 @@ $LogFilePrefix = "MigrateAgentsToAMA"
 $timestamp = (Get-Date).ToString("yyyyMMddHHmmss")
 $LogFileName = "$LogFilePrefix$timestamp.log"
 $LogFilePath = Join-Path -Path (Get-Location) -ChildPath $LogFileName
+
 
 # Extract list of resources grouped by subscription
 
@@ -77,11 +78,12 @@ function DeployAMAExtension {
         [string]$AgentUAMID
     )
 
-    $Location = $VMObject.Location
-    $VMState = get-AzVM -ResourceId $VMObject.ResourceId -Status
 
-    if ($VMObject.Properties.ProvisioningState -eq "Succeeded" -and $VMState.statuses[1].code -eq "PowerState/running") {
-        $OsType = $VMObject.Properties.storageProfile.osDisk.osType
+    $Location = $VMObject.Location
+    $VMState = get-AzVM -ResourceId $VMObject.Id -Status
+
+    if ($VMObject.ProvisioningState -eq "Succeeded" -and $VMState.statuses[1].code -eq "PowerState/running") {
+        $OsType = $VMObject.storageProfile.osDisk.osType
 
         if ($OsType -eq "Windows") {
             $ExtensionName = "AzureMonitorWindowsAgent"
@@ -114,7 +116,7 @@ function DeployAMAExtension {
     }
 }
 
-# 2 - Associate VM to a DCR
+# 2 - Associate VM with a DCR
 function AssignVMToDCR {
     param(
         [object]$VMObject,
@@ -123,13 +125,13 @@ function AssignVMToDCR {
 
     $DCR = Get-AzResource -ResourceId $DCRResourceId
 
-    $msg = "Associating VM " + $VMObject.Name + " to DCR " + $DCR.Name
+    $msg = "Associating VM " + $VMObject.Name + " with DCR " + $DCR.Name
     Log-Message $msg
     $DCRAssociationName = $DCR.Name + "-" + $VMObject.Name
     New-AzDataCollectionRuleAssociation -AssociationName $DCRAssociationName -ResourceUri $VMObject.Id -DataCollectionRuleId $DCRResourceId
 }
 
-# 3 - Associate user-assigned identity to a VM
+# 3 - Associate user-assigned identity with a VM
 function Add-UserAssignedMItoVM {
     param(
         [object]$VMObject,
@@ -185,7 +187,7 @@ function Add-UserAssignedMItoVM {
                     [array]$UAMIList = $vmobject.Identity.UserAssignedIdentities.Keys
                     $msg = $msg + "`n`nUser Assigned identities associated with the VM: " + $UAMIList
 
-                    $msg = $msg + "`n`nAdding identity : " + $identity.Name + " to the list of identities associated with the VM..."
+                    $msg = $msg + "`n`nAdding identity: " + $identity.Name + " to the list of identities associated with the VM..."
                     $UAMIList += $identity.ResourceId
                     Log-Message $msg
                     $vmobject | Update-AZVM -Identitytype $vmobject.Identity.Type -IdentityId $UAMIList -AsJob
@@ -202,12 +204,12 @@ function Add-UserAssignedMItoVM {
                     [array]$UAMIList = $vmobject.Identity.UserAssignedIdentities.Keys
                     $msg = $msg + "`n`nUser Assigned identities associated with the VM: " + $UAMIList
 
-                    $msg = $msg + "`n`nAdding identity : " + $identity.Name + " to the list of identities associated with the VM..."
+                    $msg = $msg + "`n`nAdding identity: " + $identity.Name + " to the list of identities associated with the VM..."
                     Log-Message $msg
                     $vmobject | Update-AZVM -Identitytype $vmobject.Identity.Type -IdentityId $UAMIList -AsJob
                 }
             }
-            default { $msg = "VM has unknown Managed Identity type" }
+            default { $msg = "VM has Managed Identity of unknown type" }
         }
     }
 }
