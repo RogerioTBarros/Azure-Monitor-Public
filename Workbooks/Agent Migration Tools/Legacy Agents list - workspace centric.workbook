@@ -1,0 +1,220 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "bd15ccff-70f5-48f8-8ca0-789c2e01c3b5",
+            "version": "KqlParameterItem/1.0",
+            "name": "MasterARGQuery",
+            "type": 1,
+            "isRequired": true,
+            "typeSettings": {
+              "multiLineText": true,
+              "editorLanguage": "kql",
+              "multiLineHeight": 10
+            },
+            "timeContext": {
+              "durationMs": 86400000
+            },
+            "value": "resources | where type =~ \"microsoft.compute/virtualmachines/extensions\"\r\n| extend Publisher = tostring(properties.publisher)\r\n| where Publisher =~ \"Microsoft.EnterpriseCloud.Monitoring\"\r\n| extend type = tostring(properties.type)\r\n| extend LAWorkspace = tostring(properties.settings.workspaceId)\r\n| extend vmId = tolower(extract(@\"(^.+?)\\/extensions\\/.*\",1,id))\r\n| project vmId, ExtensionType = type, LAWorkspace\r\n| join kind=inner (resources \r\n| where type =~ \"microsoft.compute/virtualmachines\"\r\n| extend OS = tostring(properties.storageProfile.osDisk.osType)\r\n| project id = tolower(id), subscriptionId, resourceGroup, location, OS) on $left.vmId == $right.id \r\n| join kind=inner (resources \r\n| where type =~ \"microsoft.operationalinsights/workspaces\"\r\n| project LAWorkspaceID = id, name, LAWSubscription = subscriptionId, LAWRG = resourceGroup, LAWId = tostring(properties.customerId))\r\non $left.LAWorkspace == $right.LAWId\r\n"
+          }
+        ],
+        "style": "above",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces"
+      },
+      "conditionalVisibility": {
+        "parameterName": "debugVisible",
+        "comparison": "isEqualTo",
+        "value": "true"
+      },
+      "name": "parameters - 1"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "title": "Máquinas a migrar por workspace. Clique em uma linha para detalhar",
+        "items": [
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "{MasterARGQuery}\r\n| summarize Total = count() , Windows = countif(OS =~ \"Windows\"), Linux = countif(OS =~ \"Linux\") by LAWorkspaceID\r\n| extend AgentDistribution = 1",
+              "size": 0,
+              "showAnalytics": true,
+              "exportMultipleValues": true,
+              "exportedParameters": [
+                {
+                  "fieldName": "LAWorkspaceID",
+                  "parameterName": "LAWorkspaceFilter",
+                  "parameterType": 1
+                }
+              ],
+              "showExportToExcel": true,
+              "queryType": 1,
+              "resourceType": "microsoft.resources/tenants",
+              "crossComponentResources": [
+                "value::tenant"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "LAWorkspaceID",
+                    "formatter": 0,
+                    "formatOptions": {
+                      "customColumnWidthSetting": "63.9996ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "Total",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "redBright",
+                      "customColumnWidthSetting": "11ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "Windows",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "lightBlue",
+                      "customColumnWidthSetting": "13ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "Linux",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "orange",
+                      "customColumnWidthSetting": "11ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "AgentDistribution",
+                    "formatter": 22,
+                    "formatOptions": {
+                      "compositeBarSettings": {
+                        "labelText": "Total: [\"Total\"]. Linux: [\"Linux\"] - Windows: [\"Windows\"]",
+                        "columnSettings": [
+                          {
+                            "columnName": "Linux",
+                            "color": "orange"
+                          },
+                          {
+                            "columnName": "Windows",
+                            "color": "blue"
+                          }
+                        ],
+                        "noRowsScaling": true
+                      },
+                      "customColumnWidthSetting": "383px"
+                    }
+                  }
+                ],
+                "rowLimit": 1000,
+                "sortBy": [
+                  {
+                    "itemKey": "$gen_compositeBar_AgentDistribution_4",
+                    "sortOrder": 2
+                  }
+                ]
+              },
+              "sortBy": [
+                {
+                  "itemKey": "$gen_compositeBar_AgentDistribution_4",
+                  "sortOrder": 2
+                }
+              ]
+            },
+            "name": "Machines by Workspace"
+          }
+        ],
+        "exportParameters": true
+      },
+      "name": "Summary Group"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "{MasterARGQuery}\r\n| where LAWorkspaceID in~ ({LAWorkspaceFilter})\r\n| extend resourceGroup = strcat(\"/subscriptions/\",subscriptionId,\"/resourcegroups/\",resourceGroup)",
+        "size": 0,
+        "showAnalytics": true,
+        "showExportToExcel": true,
+        "queryType": 1,
+        "resourceType": "microsoft.resources/tenants",
+        "crossComponentResources": [
+          "value::tenant"
+        ],
+        "gridSettings": {
+          "formatters": [
+            {
+              "columnMatch": "LAWorkspace",
+              "formatter": 5
+            },
+            {
+              "columnMatch": "id",
+              "formatter": 5
+            },
+            {
+              "columnMatch": "subscriptionId",
+              "formatter": 15,
+              "formatOptions": {
+                "linkTarget": null,
+                "showIcon": true
+              }
+            },
+            {
+              "columnMatch": "resourceGroup",
+              "formatter": 14,
+              "formatOptions": {
+                "linkTarget": null,
+                "showIcon": true
+              }
+            },
+            {
+              "columnMatch": "LAWorkspaceID",
+              "formatter": 13,
+              "formatOptions": {
+                "linkTarget": null,
+                "showIcon": true
+              }
+            },
+            {
+              "columnMatch": "name",
+              "formatter": 5
+            },
+            {
+              "columnMatch": "LAWSubscription",
+              "formatter": 5
+            },
+            {
+              "columnMatch": "LAWRG",
+              "formatter": 5
+            },
+            {
+              "columnMatch": "LAWId",
+              "formatter": 5
+            }
+          ],
+          "rowLimit": 10000
+        }
+      },
+      "conditionalVisibility": {
+        "parameterName": "LAWorkspaceFilter",
+        "comparison": "isNotEqualTo"
+      },
+      "name": "VMs by Workspace Grid"
+    }
+  ],
+  "fallbackResourceIds": [
+    "Azure Monitor"
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}
