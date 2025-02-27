@@ -1,5 +1,3 @@
-Collecting workspace information# VMs - Availability Performance and Inventory Workbook
-
 ## Visão Geral
 
 Este workbook foi desenvolvido para fornecer uma visão abrangente sobre a disponibilidade e performance de máquinas virtuais (VMs) no Azure, tanto para servidores Windows quanto Linux. Ele utiliza o VM Insights para coletar e exibir dados de performance, permitindo que os usuários monitorem e analisem o estado de suas VMs de forma eficiente.
