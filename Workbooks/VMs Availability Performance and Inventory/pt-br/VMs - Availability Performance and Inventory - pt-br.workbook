@@ -13,7 +13,7 @@
       "content": {
         "version": "KqlParameterItem/1.0",
         "crossComponentResources": [
-          "{SubscriptionParam}"
+          "{LAWSubscription}"
         ],
         "parameters": [
           {
@@ -75,17 +75,14 @@
             "id": "42d4d6ef-cdc1-4169-a59c-afe42a146e2f",
             "version": "KqlParameterItem/1.0",
             "name": "SubscriptionParam",
-            "label": "Subscription",
+            "label": "Subscription (VMs)",
             "type": 6,
             "isRequired": true,
             "multiSelect": true,
             "quote": "'",
             "delimiter": ",",
-            "query": "resources \r\n| where type =~ \"microsoft.operationalinsights/workspaces\" or type =~ \"microsoft.compute/virtualmachines\" or type =~ \"microsoft.hybridcompute/machines\"\r\n| distinct subscriptionId",
+            "query": "Resources\r\n| where type in~ (\"microsoft.compute/virtualmachines\",\"microsoft.hybridcompute/machines\")\r\n| summarize Count = count() by subscriptionId\r\n| order by Count desc\r\n| extend Rank = row_number()\r\n| project value = subscriptionId, label = subscriptionId, selected = Rank == 1",
             "crossComponentResources": [
-              "value::all"
-            ],
-            "value": [
               "value::all"
             ],
             "typeSettings": {
@@ -104,18 +101,15 @@
             "id": "4e4c439a-55d9-4b6c-ac45-d687326904ef",
             "version": "KqlParameterItem/1.0",
             "name": "ResourceGroup",
-            "label": "Resource Group",
+            "label": "Resource Group (VMs)",
             "type": 5,
             "isRequired": true,
             "multiSelect": true,
             "quote": "'",
             "delimiter": ",",
-            "query": "resources\r\n| distinct resourceGroup",
+            "query": "resources\r\n| where type in~ (\"microsoft.compute/virtualmachines\",\"microsoft.hybridcompute/machines\")\r\n| summarize Count = count() by subscriptionId, resourceGroup\r\n| order by Count desc\r\n| extend Rank = row_number()\r\n| project value = strcat('/subscriptions/', subscriptionId, '/resourceGroups/', resourceGroup), label = resourceGroup, selected = false",
             "crossComponentResources": [
               "{SubscriptionParam}"
-            ],
-            "value": [
-              "value::all"
             ],
             "typeSettings": {
               "additionalResourceOptions": [
@@ -127,7 +121,65 @@
               "durationMs": 86400000
             },
             "queryType": 1,
-            "resourceType": "microsoft.resourcegraph/resources"
+            "resourceType": "microsoft.resourcegraph/resources",
+            "value": [
+              "value::all"
+            ]
+          },
+          {
+            "version": "KqlParameterItem/1.0",
+            "name": "LAWSubscription",
+            "label": "Subscription (Workspace)",
+            "type": 6,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "Resources\r\n| where type in~ (\"microsoft.compute/virtualmachines\",\"microsoft.hybridcompute/machines\")\r\n| summarize Count = count() by subscriptionId\r\n| order by Count desc\r\n| extend Rank = row_number()\r\n| project value = subscriptionId, label = subscriptionId, selected = Rank == 1",
+            "crossComponentResources": [
+              "value::tenant"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "showDefault": false
+            },
+            "timeContext": {
+              "durationMs": 86400000
+            },
+            "queryType": 1,
+            "resourceType": "microsoft.resources/tenants",
+            "id": "d63765d2-31c3-42bc-bfc5-42323e442558"
+          },
+          {
+            "version": "KqlParameterItem/1.0",
+            "name": "LAWRG",
+            "label": "Resource Group (Workspace)",
+            "type": 5,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "resources\r\n| where type in~ (\"microsoft.compute/virtualmachines\",\"microsoft.hybridcompute/machines\")\r\n| summarize Count = count() by subscriptionId, resourceGroup\r\n| order by Count desc\r\n| extend Rank = row_number()\r\n| project value = strcat('/subscriptions/', subscriptionId, '/resourceGroups/', resourceGroup), label = resourceGroup, selected = false",
+            "crossComponentResources": [
+              "{LAWSubscription}"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "showDefault": false
+            },
+            "timeContext": {
+              "durationMs": 86400000
+            },
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources",
+            "value": [
+              "value::all"
+            ],
+            "id": "76c52f14-3cde-4d37-bfdf-86e67e787e4a"
           },
           {
             "id": "ef27d563-e21a-4f5c-9b2b-2f8aee1a157a",
@@ -139,12 +191,9 @@
             "multiSelect": true,
             "quote": "'",
             "delimiter": ",",
-            "query": "where type =~ 'microsoft.operationalinsights/workspaces'\r\n| where resourceGroup in ({ResourceGroup})\r\n| project id",
+            "query": "where type =~ 'microsoft.operationalinsights/workspaces'\r\n| extend RG = strcat (\"/subscriptions/\",subscriptionId,\"/resourceGroups/\",resourceGroup)\r\n//| where RG in~ ({LAWRG})\r\n| project id",
             "crossComponentResources": [
-              "{SubscriptionParam}"
-            ],
-            "value": [
-              "value::all"
+              "{LAWSubscription}"
             ],
             "typeSettings": {
               "additionalResourceOptions": [
@@ -156,7 +205,10 @@
               "durationMs": 86400000
             },
             "queryType": 1,
-            "resourceType": "microsoft.resourcegraph/resources"
+            "resourceType": "microsoft.resourcegraph/resources",
+            "value": [
+              "value::all"
+            ]
           },
           {
             "id": "a1f1ab02-42d3-4c31-9e05-77ae330bce94",
@@ -168,7 +220,8 @@
             "typeSettings": {
               "additionalResourceOptions": []
             },
-            "jsonData": "[{\"value\":\"true\",\"label\":\"Sim\",\"selected\":true},\r\n{\"value\":\"false\",\"label\":\"Não\"}]"
+            "jsonData": "[{\"value\":\"true\",\"label\":\"Sim\",\"selected\":true},\r\n{\"value\":\"false\",\"label\":\"Não\"}]",
+            "value": "false"
           },
           {
             "id": "0cadcd37-e29c-49c4-a2a9-82b49a472d1e",
@@ -198,7 +251,7 @@
         ],
         "style": "above",
         "queryType": 1,
-        "resourceType": "microsoft.operationalinsights/workspaces"
+        "resourceType": "microsoft.resourcegraph/resources"
       },
       "name": "parameters - 7"
     },
@@ -353,8 +406,7 @@
                     "additionalResourceOptions": [],
                     "showDefault": false
                   },
-                  "jsonData": "[\r\n    {\"label\":\"Saudáveis\",\"value\":\"MachineStatus in('Connected','VM running')\"},\r\n    {\"label\":\"Não saudáveis\",\"value\":\"MachineStatus !in('Connected','VM running')\"},\r\n    {\"label\":\"Todos\",\"value\":\"true\",\"selected\":true}\r\n]",
-                  "value": "MachineStatus in('Connected','VM running')"
+                  "jsonData": "[\r\n    {\"label\":\"Saudáveis\",\"value\":\"MachineStatus in('Connected','VM running')\"},\r\n    {\"label\":\"Não saudáveis\",\"value\":\"MachineStatus !in('Connected','VM running')\"},\r\n    {\"label\":\"Todos\",\"value\":\"true\",\"selected\":true}\r\n]"
                 },
                 {
                   "id": "d2b43e07-7249-4e4f-87a3-97812028965c",
@@ -475,7 +527,7 @@
             "content": {
               "version": "KqlParameterItem/1.0",
               "crossComponentResources": [
-                "{WorkspaceParam}"
+                "{SubscriptionParam}"
               ],
               "parameters": [
                 {
@@ -487,9 +539,9 @@
                   "multiSelect": true,
                   "quote": "'",
                   "delimiter": ",",
-                  "query": "resources  | where type =~ \"microsoft.compute/virtualmachines\" or type =~ \"microsoft.hybridcompute/machines\"  \r\n| where resourceGroup in ({ResourceGroup}) \r\n| where {MachineType}\r\n\r\n| project id = tolower(id), OSType = case(\r\n    type == \"microsoft.compute/virtualmachines\", properties.storageProfile.osDisk.osType,\r\n    type == \"microsoft.hybridcompute/machines\", properties.osName,\r\n    \"Unknown\"\r\n), MachineStatus = case(\r\n    type == \"microsoft.compute/virtualmachines\", properties.extended.instanceView.powerState.displayStatus,\r\n    type == \"microsoft.hybridcompute/machines\", properties.status,\r\n    \"Unknown\"\r\n)\r\n| where {AzureStatusFilter} and OSType in~ ({OSTypeFilter:value}) and id matches regex @\"(?i){ServerNameFilter}\"\r\n| distinct id",
+                  "query": "resources  | where type in~ (\"microsoft.compute/virtualmachines\",\"microsoft.hybridcompute/machines\")\r\n| extend RG = strcat(\"/subscriptions/\",subscriptionId,\"/resourcegroups/\",resourceGroup)\r\n| where RG in~ ({ResourceGroup}) \r\n| where {MachineType}\r\n\r\n| project id = tolower(id), OSType = case(\r\n    type == \"microsoft.compute/virtualmachines\", properties.storageProfile.osDisk.osType,\r\n    type == \"microsoft.hybridcompute/machines\", properties.osName,\r\n    \"Unknown\"\r\n), MachineStatus = case(\r\n    type == \"microsoft.compute/virtualmachines\", properties.extended.instanceView.powerState.displayStatus,\r\n    type == \"microsoft.hybridcompute/machines\", properties.status,\r\n    \"Unknown\"\r\n)\r\n| where {AzureStatusFilter} and OSType in~ ({OSTypeFilter:value}) and id matches regex @\"(?i){ServerNameFilter}\"\r\n| distinct id",
                   "crossComponentResources": [
-                    "{WorkspaceParam}"
+                    "{SubscriptionParam}"
                   ],
                   "typeSettings": {
                     "additionalResourceOptions": [
@@ -659,10 +711,10 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "let ARGResources = arg(\"\").resources\r\n| where id in~ ({SelectedMachines})\r\n| project subscriptionId, resourceGroup, id = tolower(id), type, MachineStatus = case(\r\n    type == \"microsoft.compute/virtualmachines\", properties.extended.instanceView.powerState.displayStatus,\r\n    type == \"microsoft.hybridcompute/machines\", properties.status,\r\n    \"Unknown\"\r\n), OSType = case(\r\n    type == \"microsoft.compute/virtualmachines\", properties.storageProfile.osDisk.osType,\r\n    type == \"microsoft.hybridcompute/machines\", properties.osName,\r\n    \"Unknown\"\r\n)\r\n| extend MachineStatus = iff(isempty(MachineStatus),\"Unknown\",MachineStatus)\r\n| where {AzureStatusFilter}\r\n| extend RG = strcat(\"/subscriptions/\", subscriptionId, \"/resourceGroups/\", resourceGroup)\r\n| project-away resourceGroup;\r\nlet ComputerList = ARGResources | distinct id;\r\n{VMInsightsMainQuery}\r\nARGResources\r\n| join kind=leftouter VMInsightsPerfData on $left.id == $right._ResourceId\r\n| extend HeartbeatState = iif(SecondsSinceLastHeartbeat <= {HeartbeatThreshold},\"Healthy\",\"Unhealthy\")\r\n| extend PerfState = iif(CPUUsage <= {CPUThreshold} and MemoryUsage <= {MemThreshold} and OSDiskUsedSpacePercentage <= {SystemDriveThreshold}, \"Healthy\", \"Unhealthy\")\r\n| where {ThresholdFilter}\r\n| project\r\n    MachineStatus,\r\n    HeartbeatState,\r\n    PerfState,\r\n    id,\r\n    subscriptionId,\r\n    RG,\r\n    OSType,\r\n    SecondsSinceLastHeartbeat,\r\n    CPUUsage,\r\n    MemoryUsage,\r\n    OSDiskUsedSpacePercentage\r\n\r\n",
+              "query": "let ARGResources = arg(\"\").resources\r\n| where id in~ ({SelectedMachines})\r\n| project subscriptionId, resourceGroup, id = tolower(id), type, MachineStatus = case(\r\n    type == \"microsoft.compute/virtualmachines\", properties.extended.instanceView.powerState.displayStatus,\r\n    type == \"microsoft.hybridcompute/machines\", properties.status,\r\n    \"Unknown\"\r\n), OSType = case(\r\n    type == \"microsoft.compute/virtualmachines\", properties.storageProfile.osDisk.osType,\r\n    type == \"microsoft.hybridcompute/machines\", properties.osName,\r\n    \"Unknown\"\r\n)\r\n| extend MachineStatus = iff(isempty(MachineStatus),\"Unknown\",MachineStatus)\r\n| where {AzureStatusFilter}\r\n| extend RG = strcat(\"/subscriptions/\", subscriptionId, \"/resourceGroups/\", resourceGroup)\r\n| project-away resourceGroup;\r\nlet ComputerList = ARGResources | distinct id;\r\n{VMInsightsMainQuery}\r\nARGResources\r\n| join kind=leftouter VMInsightsPerfData on $left.id == $right._ResourceId\r\n| extend HeartbeatState = iif(SecondsSinceLastHeartbeat <= {HeartbeatThreshold},\"Healthy\",\"Unhealthy\")\r\n| extend PerfState = iif(CPUUsage <= {CPUThreshold} and MemoryUsage <= {MemThreshold} and OSDiskUsedSpacePercentage <= {SystemDriveThreshold}, \"Healthy\", \"Unhealthy\")\r\n| where {ThresholdFilter}\r\n| project\r\n    MachineStatus,\r\n    HeartbeatState,\r\n    PerfState,\r\n    id,\r\n    subscriptionId,\r\n    RG,\r\n    OSType,\r\n    SecondsSinceLastHeartbeat,\r\n    CPUUsage,\r\n    MemoryUsage,\r\n    OSDiskUsedSpacePercentage,Details = \"1\"\r\n\r\n",
               "size": 0,
               "showAnalytics": true,
-              "title": "Lista de VMs - Clique em uma linha para detalhes",
+              "title": "Lista de VMs",
               "timeContextFromParameter": "TimeRangeParam",
               "showExportToExcel": true,
               "queryType": 0,
@@ -778,19 +830,18 @@
                   },
                   {
                     "columnMatch": "subscriptionId",
-                    "formatter": 5
+                    "formatter": 15,
+                    "formatOptions": {
+                      "linkTarget": null,
+                      "showIcon": true,
+                      "customColumnWidthSetting": "22ch"
+                    }
                   },
                   {
-                    "columnMatch": "SecondsSinceLastHeartbeat",
+                    "columnMatch": "RG",
                     "formatter": 0,
                     "formatOptions": {
-                      "customColumnWidthSetting": "20ch"
-                    },
-                    "numberFormat": {
-                      "unit": 24,
-                      "options": {
-                        "style": "decimal"
-                      }
+                      "customColumnWidthSetting": "27.8571ch"
                     }
                   },
                   {
@@ -804,6 +855,19 @@
                       "options": {
                         "style": "decimal",
                         "maximumFractionDigits": 0
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "SecondsSinceLastHeartbeat",
+                    "formatter": 0,
+                    "formatOptions": {
+                      "customColumnWidthSetting": "20ch"
+                    },
+                    "numberFormat": {
+                      "unit": 24,
+                      "options": {
+                        "style": "decimal"
                       }
                     }
                   },
@@ -859,12 +923,55 @@
                     }
                   },
                   {
+                    "columnMatch": "Details",
+                    "formatter": 7,
+                    "formatOptions": {
+                      "linkTarget": "WorkbookTemplate",
+                      "linkLabel": "Abrir",
+                      "workbookContext": {
+                        "componentIdSource": "workbook",
+                        "resourceIdsSource": "workbook",
+                        "templateIdSource": "static",
+                        "templateId": "/subscriptions/a08eb318-0b05-45e9-91e2-fd9622c79e00/resourceGroups/TJSP-PROD-STI4-WORKBOOKS-PROD/providers/microsoft.insights/workbooks/8b8ea8da-704a-43af-9451-b203cf359333",
+                        "typeSource": "workbook",
+                        "gallerySource": "workbook",
+                        "locationSource": "default",
+                        "workbookName": "Detalhamento VM",
+                        "passSpecificParams": true,
+                        "templateParameters": [
+                          {
+                            "name": "TimeRange",
+                            "source": "parameter",
+                            "value": "TimeRangeParam"
+                          },
+                          {
+                            "name": "Workspace",
+                            "source": "parameter",
+                            "value": "WorkspaceParam"
+                          },
+                          {
+                            "name": "VMResourceID",
+                            "source": "column",
+                            "value": "id"
+                          }
+                        ],
+                        "viewerMode": false
+                      }
+                    }
+                  },
+                  {
                     "columnMatch": "resourceGroup",
                     "formatter": 5
                   }
                 ],
-                "rowLimit": 1000,
+                "rowLimit": 2000,
                 "filter": true,
+                "sortBy": [
+                  {
+                    "itemKey": "$gen_thresholds_MachineStatus_0",
+                    "sortOrder": 1
+                  }
+                ],
                 "labelSettings": [
                   {
                     "columnId": "MachineStatus",
@@ -909,10 +1016,19 @@
                   {
                     "columnId": "OSDiskUsedSpacePercentage",
                     "label": "% OSDisk"
+                  },
+                  {
+                    "columnId": "Details",
+                    "label": "Detalhes"
                   }
                 ]
               },
-              "sortBy": []
+              "sortBy": [
+                {
+                  "itemKey": "$gen_thresholds_MachineStatus_0",
+                  "sortOrder": 1
+                }
+              ]
             },
             "name": "Main Grid - Flat"
           }

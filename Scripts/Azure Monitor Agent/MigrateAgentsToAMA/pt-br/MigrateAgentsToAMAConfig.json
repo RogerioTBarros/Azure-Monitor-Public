@@ -6,6 +6,7 @@
     "/subscriptions/56828eff-05b6-44cb-ae7f-3c007e40d164/resourceGroups/rg-identities/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mi-VMMonitoring-vsold-brazilsouth"
   ],
   "dcrList": [
-    "/subscriptions/fa9678e8-6b00-4b3c-9a0d-465e5faff9ab/resourceGroups/rogeriolab.monitoring.rg/providers/Microsoft.Insights/dataCollectionRules/MSVMI-VMDefault-DCR"
+    "/subscriptions/fa9678e8-6b00-4b3c-9a0d-465e5faff9ab/resourceGroups/rogeriolab.monitoring.rg/providers/Microsoft.Insights/dataCollectionRules/MSVMI-VMDefault-DCR",
+    
   ]
 }

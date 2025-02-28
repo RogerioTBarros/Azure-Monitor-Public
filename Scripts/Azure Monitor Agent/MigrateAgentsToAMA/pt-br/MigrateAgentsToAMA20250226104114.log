@@ -1,0 +1,47 @@
+Processando VMs da subscription: Visual Studio Enterprise - rogeriolab - nova (fa9678e8-6b00-4b3c-9a0d-465e5faff9ab) - d71ac216-0460-441e-8b8b-80fea906bfa8 - rogerio.barros@hotmail.com
+
+Processando VM: Win-brz-002
+Iniciando associação de User Assigned Managed Identity...
+
+Managed Identity a adicionar: AzureVMMonitoring-MI-BrazilSouth-VSNova
+Associar User Managed Identity - Analisando VM Win-brz-002
+Checando tipo de identidade
+VM possui Managed Identity. Tipo: SystemAssignedUserAssigned
+A identidade AzureVMMonitoring-MI-BrazilSouth-VSNova já está associada à VM
+Checando extensões do Azure Monitor Agent na VM Win-brz-002...
+A VM Win-brz-002 possui a extensão Azure Monitor Agent instalada.
+Checando DCRs associadas à VM Win-brz-002
+A VM possui as seguintes DCRs associadas: 
+MSVMI-VMDefault-DCR
+A DCR MSVMI-VMDefault-DCR já está associada à VM
+
+Processando VM: WindowsBrazilSouth-001
+Iniciando associação de User Assigned Managed Identity...
+
+Managed Identity a adicionar: AzureVMMonitoring-MI-BrazilSouth-VSNova
+Associar User Managed Identity - Analisando VM WindowsBrazilSouth-001
+Checando tipo de identidade
+VM possui Managed Identity. Tipo: UserAssigned
+A identidade AzureVMMonitoring-MI-BrazilSouth-VSNova já está associada à VM
+Checando extensões do Azure Monitor Agent na VM WindowsBrazilSouth-001...
+A VM WindowsBrazilSouth-001 possui a extensão Azure Monitor Agent instalada.
+Checando DCRs associadas à VM WindowsBrazilSouth-001
+A VM possui as seguintes DCRs associadas: 
+MSVMI-VMDefault-DCR
+A DCR MSVMI-VMDefault-DCR já está associada à VM
+Processando VMs da subscription: Visual Studio Enterprise (56828eff-05b6-44cb-ae7f-3c007e40d164) - d71ac216-0460-441e-8b8b-80fea906bfa8 - rogerio.barros@hotmail.com
+
+Processando VM: win-vsold-001
+Iniciando associação de User Assigned Managed Identity...
+
+Managed Identity a adicionar: mi-VMMonitoring-vsold-brazilsouth
+Associar User Managed Identity - Analisando VM win-vsold-001
+Checando tipo de identidade
+VM possui Managed Identity. Tipo: UserAssigned
+A identidade mi-VMMonitoring-vsold-brazilsouth já está associada à VM
+Checando extensões do Azure Monitor Agent na VM win-vsold-001...
+A VM win-vsold-001 possui a extensão Azure Monitor Agent instalada.
+Checando DCRs associadas à VM win-vsold-001
+A VM possui as seguintes DCRs associadas: 
+MSVMI-VMDefault-DCR
+A DCR MSVMI-VMDefault-DCR já está associada à VM
