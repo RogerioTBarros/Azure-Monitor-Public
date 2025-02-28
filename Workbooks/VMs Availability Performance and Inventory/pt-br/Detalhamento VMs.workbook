@@ -1,0 +1,1511 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "# Detalhamento VMs"
+      },
+      "name": "text - 3"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "crossComponentResources": [
+          "value::tenant"
+        ],
+        "parameters": [
+          {
+            "id": "64337b0f-f47d-4ee2-a135-ab8f451815e2",
+            "version": "KqlParameterItem/1.0",
+            "name": "VMResourceID",
+            "type": 5,
+            "isRequired": true,
+            "query": "resources\r\n| where type =~ 'microsoft.compute/virtualmachines' or type =~ \"microsoft.hybridcompute/machines\"\r\n| distinct id",
+            "crossComponentResources": [
+              "value::tenant"
+            ],
+            "isHiddenWhenLocked": true,
+            "typeSettings": {
+              "additionalResourceOptions": [],
+              "showDefault": false
+            },
+            "timeContext": {
+              "durationMs": 86400000
+            },
+            "queryType": 1,
+            "resourceType": "microsoft.resources/tenants",
+            "value": "/subscriptions/a08eb318-0b05-45e9-91e2-fd9622c79e00/resourcegroups/arc-win-prod-rg/providers/microsoft.hybridcompute/machines/hlmhsajadmdb-01"
+          },
+          {
+            "id": "a6e42bd0-7d58-48d8-88b2-5564ceda1b9b",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "type": 4,
+            "isRequired": true,
+            "typeSettings": {
+              "selectableValues": [
+                {
+                  "durationMs": 300000
+                },
+                {
+                  "durationMs": 900000
+                },
+                {
+                  "durationMs": 1800000
+                },
+                {
+                  "durationMs": 3600000
+                },
+                {
+                  "durationMs": 14400000
+                },
+                {
+                  "durationMs": 43200000
+                },
+                {
+                  "durationMs": 86400000
+                },
+                {
+                  "durationMs": 172800000
+                },
+                {
+                  "durationMs": 259200000
+                },
+                {
+                  "durationMs": 604800000
+                },
+                {
+                  "durationMs": 1209600000
+                },
+                {
+                  "durationMs": 2419200000
+                },
+                {
+                  "durationMs": 2592000000
+                },
+                {
+                  "durationMs": 5184000000
+                },
+                {
+                  "durationMs": 7776000000
+                }
+              ],
+              "allowCustom": true
+            },
+            "timeContext": {
+              "durationMs": 86400000
+            },
+            "value": {
+              "durationMs": 86400000
+            },
+            "label": "Período"
+          },
+          {
+            "id": "3148d801-c8c1-4c14-b608-7fed2a304634",
+            "version": "KqlParameterItem/1.0",
+            "name": "Workspace",
+            "type": 5,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "resources\r\n| where type =~ 'microsoft.operationalinsights/workspaces'\r\n| distinct id",
+            "crossComponentResources": [
+              "value::tenant"
+            ],
+            "isHiddenWhenLocked": true,
+            "typeSettings": {
+              "additionalResourceOptions": [],
+              "showDefault": false
+            },
+            "queryType": 1,
+            "resourceType": "microsoft.resources/tenants",
+            "value": [
+              "value::all"
+            ]
+          },
+          {
+            "id": "2ba52605-f9ae-4cc6-a1f6-c4b7c6e19297",
+            "version": "KqlParameterItem/1.0",
+            "name": "PerfAggregator",
+            "label": "Agregar por ",
+            "type": 10,
+            "isRequired": true,
+            "typeSettings": {
+              "additionalResourceOptions": []
+            },
+            "jsonData": "[{ \"value\": \"avg\", \"label\": \"Média\", \"selected\":true }, { \"value\": \"max\", \"label\": \"Máximo\"}, { \"value\": \"min\", \"label\": \"Mínimo\"}]"
+          },
+          {
+            "id": "10eb458a-e8bd-4dc5-bfaa-45bb269efd67",
+            "version": "KqlParameterItem/1.0",
+            "name": "VMType",
+            "type": 1,
+            "query": "resources\r\n| where id =~ \"{VMResourceID}\"\r\n| project VMType = case(\r\n    type == \"microsoft.compute/virtualmachines\", \"AzureVM\",\r\n    type == \"microsoft.hybridcompute/machines\", \"ArcVM\",\r\n    \"Unknown\"\r\n)",
+            "crossComponentResources": [
+              "value::tenant"
+            ],
+            "isHiddenWhenLocked": true,
+            "timeContext": {
+              "durationMs": 86400000
+            },
+            "queryType": 1,
+            "resourceType": "microsoft.resources/tenants"
+          },
+          {
+            "id": "e556e7b6-1af5-49a5-a640-5afcbcbdbc9a",
+            "version": "KqlParameterItem/1.0",
+            "name": "OSType",
+            "type": 1,
+            "query": "resources\r\n| where id =~ \"{VMResourceID}\"\r\n| project OSType = case(\r\n    type == \"microsoft.compute/virtualmachines\", tolower(properties.storageProfile.osDisk.osType),\r\n    type == \"microsoft.hybridcompute/machines\", tolower(properties.osName),\r\n    \"Unknown\"\r\n)",
+            "crossComponentResources": [
+              "value::tenant"
+            ],
+            "isHiddenWhenLocked": true,
+            "queryType": 1,
+            "resourceType": "microsoft.resources/tenants"
+          }
+        ],
+        "style": "above",
+        "queryType": 1,
+        "resourceType": "microsoft.resources/tenants"
+      },
+      "name": "Parameters - received"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "{\"version\":\"AzureHealthQuery/1.0\",\"queryType\":\"Detailed\"}",
+              "size": 3,
+              "title": "Resource Health",
+              "queryType": 4,
+              "resourceType": "microsoft.compute/virtualmachines",
+              "crossComponentResources": [
+                "{VMResourceID}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Name",
+                    "formatter": 0,
+                    "formatOptions": {
+                      "customColumnWidthSetting": "32.5ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "Availability state",
+                    "formatter": 11,
+                    "formatOptions": {
+                      "customColumnWidthSetting": "26.5ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "Detailed status",
+                    "formatter": 0,
+                    "formatOptions": {
+                      "customColumnWidthSetting": "41.4286ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "Occurred time",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Reason chronicity",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Reason type",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Reported time",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Summary",
+                    "formatter": 0,
+                    "formatOptions": {
+                      "customColumnWidthSetting": "67ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "Title",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Resource group",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Subscription",
+                    "formatter": 5
+                  }
+                ]
+              }
+            },
+            "customWidth": "100",
+            "conditionalVisibility": {
+              "parameterName": "VMType",
+              "comparison": "isEqualTo",
+              "value": "AzureVM"
+            },
+            "name": "Azure Resource Health Query - Azure VMs"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "{\"version\":\"AzureHealthQuery/1.0\",\"queryType\":\"Detailed\"}",
+              "size": 3,
+              "title": "Resource Health",
+              "queryType": 4,
+              "resourceType": "microsoft.hybridcompute/machines",
+              "crossComponentResources": [
+                "{VMResourceID}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Name",
+                    "formatter": 0,
+                    "formatOptions": {
+                      "customColumnWidthSetting": "32.5ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "Availability state",
+                    "formatter": 11,
+                    "formatOptions": {
+                      "customColumnWidthSetting": "26.5ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "Detailed status",
+                    "formatter": 0,
+                    "formatOptions": {
+                      "customColumnWidthSetting": "41.4286ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "Occurred time",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Reason chronicity",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Reason type",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Reported time",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Summary",
+                    "formatter": 0,
+                    "formatOptions": {
+                      "customColumnWidthSetting": "67ch"
+                    }
+                  },
+                  {
+                    "columnMatch": "Title",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Resource group",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Subscription",
+                    "formatter": 5
+                  }
+                ]
+              }
+            },
+            "customWidth": "100",
+            "conditionalVisibility": {
+              "parameterName": "VMType",
+              "comparison": "isEqualTo",
+              "value": "ArcVM"
+            },
+            "name": "Azure Resource Health Query - Arc Machines"
+          }
+        ]
+      },
+      "name": "Resource Health Group"
+    },
+    {
+      "type": 11,
+      "content": {
+        "version": "LinkItem/1.0",
+        "style": "tabs",
+        "links": [
+          {
+            "id": "1fb0ee15-722e-44c5-884d-dd1bfa5c0502",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "Performance e disponibilidade",
+            "subTarget": "Perf",
+            "style": "link"
+          },
+          {
+            "id": "4c48b3a5-debe-4cba-a330-75eb7f6650b8",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "Alertas",
+            "subTarget": "Alerts",
+            "style": "link"
+          },
+          {
+            "id": "8cdabd74-ee5b-4539-b58c-44f7fe0abd70",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "Eventos (Syslog ou Windows Events)",
+            "subTarget": "Events",
+            "style": "link"
+          },
+          {
+            "id": "ee7db16e-5fc0-464c-b0c0-10542253a755",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "Log de Atividades Azure",
+            "subTarget": "ActivityLog",
+            "style": "link"
+          }
+        ]
+      },
+      "name": "links - 7"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 10,
+            "content": {
+              "chartId": "workbook64f7c81a-383f-4355-9f4c-56e1b7d36bf9",
+              "version": "MetricsItem/2.0",
+              "size": 1,
+              "chartType": 1,
+              "resourceType": "microsoft.compute/virtualmachines",
+              "metricScope": 0,
+              "resourceParameter": "VMResourceID",
+              "resourceIds": [
+                "{VMResourceID}"
+              ],
+              "timeContextFromParameter": "TimeRange",
+              "timeContext": {
+                "durationMs": 86400000
+              },
+              "metrics": [
+                {
+                  "namespace": "microsoft.compute/virtualmachines",
+                  "metric": "microsoft.compute/virtualmachines--VmAvailabilityMetric",
+                  "aggregation": 4,
+                  "columnName": "Disponibilidade"
+                }
+              ],
+              "title": "Disponibilidade",
+              "timeBrushParameterName": "TimeRange",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Subscription",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Name",
+                    "formatter": 13,
+                    "formatOptions": {
+                      "linkTarget": "Resource"
+                    }
+                  },
+                  {
+                    "columnMatch": "microsoft.compute/virtualmachines--Percentage CPU Timeline",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "microsoft.compute/virtualmachines--Percentage CPU",
+                    "formatter": 1,
+                    "numberFormat": {
+                      "unit": 1,
+                      "options": null
+                    }
+                  }
+                ],
+                "rowLimit": 10000,
+                "labelSettings": [
+                  {
+                    "columnId": "microsoft.compute/virtualmachines--Percentage CPU",
+                    "label": "Percentage CPU (Average)"
+                  },
+                  {
+                    "columnId": "microsoft.compute/virtualmachines--Percentage CPU Timeline",
+                    "label": "Percentage CPU Timeline"
+                  }
+                ]
+              }
+            },
+            "customWidth": "50",
+            "conditionalVisibility": {
+              "parameterName": "VMType",
+              "comparison": "isEqualTo",
+              "value": "AzureVM"
+            },
+            "name": "VM Availability"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "InsightsMetrics\r\n| where Namespace == \"Computer\" and Name == \"Heartbeat\"\r\n| where _ResourceId =~ \"{VMResourceID}\"\r\n| summarize Disponibilidade = avg(Val) by bin(TimeGenerated,{TimeRange:grain})\r\n| render columnchart ",
+              "size": 1,
+              "aggregation": 5,
+              "title": "Disponibilidade",
+              "timeContextFromParameter": "TimeRange",
+              "timeBrushParameterName": "TimeRange",
+              "timeBrushExportOnlyWhenBrushed": true,
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "barchart",
+              "chartSettings": {
+                "ySettings": {
+                  "min": 0,
+                  "max": 1
+                }
+              }
+            },
+            "customWidth": "50",
+            "conditionalVisibility": {
+              "parameterName": "VMType",
+              "comparison": "isEqualTo",
+              "value": "ArcVM"
+            },
+            "name": "VMInsights Arc Availability"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let ComputerIdList = datatable(id: string)[\r\n    '{VMResourceID}'\r\n];\r\nlet TimeGrain = {TimeRange:grain};\r\nlet InsightsMetricsInfo = materialize(InsightsMetrics\r\n    | where Namespace in (\"Processor\", \"Memory\", \"LogicalDisk\") and Name in (\"UtilizationPercentage\", \"AvailableMB\", \"FreeSpacePercentage\")\r\n    | where _ResourceId in~ (ComputerIdList));\r\nlet CPUUsage = InsightsMetricsInfo\r\n    | where Namespace == \"Processor\" and Name == \"UtilizationPercentage\"\r\n    | summarize CPU = {PerfAggregator}(Val) by _ResourceId, bin(TimeGenerated,TimeGrain);\r\nlet MemoryUsage = InsightsMetricsInfo\r\n    | where Namespace == \"Memory\" and Name == \"AvailableMB\"\r\n    | extend MemorySizeMB = parse_json(Tags).['vm.azm.ms/memorySizeMB']\r\n    | extend PercentMemoryUsed = (1 - (Val / MemorySizeMB)) * 100\r\n    | summarize Memoria = {PerfAggregator}(PercentMemoryUsed) by _ResourceId, bin(TimeGenerated, TimeGrain);\r\nlet DiskUsedSpace = InsightsMetricsInfo\r\n    | where Namespace == \"LogicalDisk\"\r\n    | where Name == \"FreeSpacePercentage\"\r\n    | extend Instance = tostring(todynamic(Tags).[\"vm.azm.ms/mountId\"])\r\n    | where Instance == \"/\" or Instance =~ \"C:\"\r\n    | extend UsedSpacePercentage = 100 - Val\r\n    | summarize OSDisk = {PerfAggregator}(UsedSpacePercentage) by _ResourceId, Instance, bin(TimeGenerated, TimeGrain)\r\n    | project-away Instance;\r\nCPUUsage\r\n| join kind=leftouter MemoryUsage on _ResourceId, TimeGenerated\r\n| join kind=leftouter DiskUsedSpace on _ResourceId, TimeGenerated\r\n| project-away _ResourceId1, _ResourceId2, TimeGenerated1, TimeGenerated2\r\n| render timechart",
+              "size": 1,
+              "aggregation": 5,
+              "title": "CPU Memória e Disco (/) (%)",
+              "timeContextFromParameter": "TimeRange",
+              "timeBrushParameterName": "TimeRange",
+              "timeBrushExportOnlyWhenBrushed": true,
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "chartSettings": {
+                "ySettings": {
+                  "min": 0,
+                  "max": 100
+                }
+              }
+            },
+            "customWidth": "50",
+            "name": "VMInsights Perf main metrics"
+          },
+          {
+            "type": 12,
+            "content": {
+              "version": "NotebookGroup/1.0",
+              "groupType": "editable",
+              "title": "Interfaces de rede",
+              "items": [
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "InsightsMetrics\r\n| where _ResourceId =~ \"{VMResourceID}\"\r\n| where Namespace == \"Network\" and Name ==\"ReadBytesPerSecond\"\r\n| extend NIC = tostring(parse_json(Tags).[\"vm.azm.ms/networkDeviceId\"])\r\n| summarize RedBytes = {PerfAggregator}(Val) by NIC, bin(TimeGenerated, {TimeRange:grain})\r\n| render timechart\r\n",
+                    "size": 1,
+                    "aggregation": 5,
+                    "title": "Read Bytes / second",
+                    "timeContextFromParameter": "TimeRange",
+                    "timeBrushParameterName": "TimeRange",
+                    "timeBrushExportOnlyWhenBrushed": true,
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "crossComponentResources": [
+                      "{Workspace}"
+                    ],
+                    "chartSettings": {
+                      "ySettings": {
+                        "numberFormatSettings": {
+                          "unit": 11,
+                          "options": {
+                            "style": "decimal",
+                            "useGrouping": true
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "customWidth": "50",
+                  "name": "Read Bytes"
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "InsightsMetrics\r\n| where _ResourceId =~ \"{VMResourceID}\"\r\n| where Namespace == \"Network\" and Name ==\"WriteBytesPerSecond\"\r\n| extend NIC = tostring(parse_json(Tags).[\"vm.azm.ms/networkDeviceId\"])\r\n| summarize WriteBytes = {PerfAggregator}(Val) by NIC, bin(TimeGenerated, {TimeRange:grain})\r\n| render timechart\r\n",
+                    "size": 1,
+                    "aggregation": 5,
+                    "title": "Write Bytes / second",
+                    "timeContextFromParameter": "TimeRange",
+                    "timeBrushParameterName": "TimeRange",
+                    "timeBrushExportOnlyWhenBrushed": true,
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "crossComponentResources": [
+                      "{Workspace}"
+                    ],
+                    "chartSettings": {
+                      "ySettings": {
+                        "numberFormatSettings": {
+                          "unit": 11,
+                          "options": {
+                            "style": "decimal",
+                            "useGrouping": true
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "customWidth": "50",
+                  "name": "Write Bytes"
+                }
+              ]
+            },
+            "name": "Network Interfaces Group",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 12,
+            "content": {
+              "version": "NotebookGroup/1.0",
+              "groupType": "editable",
+              "title": "Discos",
+              "items": [
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "InsightsMetrics\r\n| where _ResourceId =~ \"{VMResourceID}\"\r\n| where Namespace == \"LogicalDisk\"\r\n| extend Instance = tostring(todynamic(Tags).[\"vm.azm.ms/mountId\"])\r\n| project Instance, Name, Val\r\n| evaluate pivot(Name,{PerfAggregator:value}(Val),Instance)",
+                    "size": 3,
+                    "showAnalytics": true,
+                    "title": "Informações de disco - faça scroll lateral para ver todos",
+                    "timeContextFromParameter": "TimeRange",
+                    "showExportToExcel": true,
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "crossComponentResources": [
+                      "{Workspace}"
+                    ],
+                    "visualization": "table",
+                    "gridSettings": {
+                      "formatters": [
+                        {
+                          "columnMatch": "BytesPerSecond",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "palette": "blue"
+                          },
+                          "numberFormat": {
+                            "unit": 2,
+                            "options": {
+                              "style": "decimal"
+                            }
+                          }
+                        },
+                        {
+                          "columnMatch": "FreeSpaceMB",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "palette": "blue"
+                          },
+                          "numberFormat": {
+                            "unit": 4,
+                            "options": {
+                              "style": "decimal"
+                            }
+                          }
+                        },
+                        {
+                          "columnMatch": "FreeSpacePercentage",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "min": 0,
+                            "max": 100,
+                            "palette": "redGreen"
+                          },
+                          "numberFormat": {
+                            "unit": 0,
+                            "options": {
+                              "style": "decimal",
+                              "maximumFractionDigits": 0
+                            }
+                          }
+                        },
+                        {
+                          "columnMatch": "ReadBytesPerSecond",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "palette": "blue"
+                          },
+                          "numberFormat": {
+                            "unit": 2,
+                            "options": {
+                              "style": "decimal"
+                            }
+                          }
+                        },
+                        {
+                          "columnMatch": "ReadLatencyMs",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "palette": "blue"
+                          },
+                          "numberFormat": {
+                            "unit": 23,
+                            "options": {
+                              "style": "decimal"
+                            }
+                          }
+                        },
+                        {
+                          "columnMatch": "ReadsPerSecond",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "palette": "blue"
+                          }
+                        },
+                        {
+                          "columnMatch": "TransferLatencyMs",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "palette": "blue"
+                          },
+                          "numberFormat": {
+                            "unit": 23,
+                            "options": {
+                              "style": "decimal"
+                            }
+                          }
+                        },
+                        {
+                          "columnMatch": "TransfersPerSecond",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "palette": "blue"
+                          }
+                        },
+                        {
+                          "columnMatch": "WriteBytesPerSecond",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "palette": "blue"
+                          },
+                          "numberFormat": {
+                            "unit": 2,
+                            "options": {
+                              "style": "decimal"
+                            }
+                          }
+                        },
+                        {
+                          "columnMatch": "WriteLatencyMs",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "palette": "blue"
+                          },
+                          "numberFormat": {
+                            "unit": 23,
+                            "options": {
+                              "style": "decimal"
+                            }
+                          }
+                        },
+                        {
+                          "columnMatch": "WritesPerSecond",
+                          "formatter": 8,
+                          "formatOptions": {
+                            "palette": "blue"
+                          }
+                        }
+                      ],
+                      "sortBy": [
+                        {
+                          "itemKey": "Instance",
+                          "sortOrder": 1
+                        }
+                      ]
+                    },
+                    "sortBy": [
+                      {
+                        "itemKey": "Instance",
+                        "sortOrder": 1
+                      }
+                    ]
+                  },
+                  "name": "Disk Counters Drill down query"
+                }
+              ]
+            },
+            "name": "Disk Info Group",
+            "styleSettings": {
+              "showBorder": true
+            }
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "Perf"
+      },
+      "name": "Perf Group"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "alertsmanagementresources\r\n| where type == 'microsoft.alertsmanagement/alerts'\r\n| extend Raised = todatetime(properties[\"essentials\"][\"startDateTime\"])\r\n| where Raised >= {TimeRange:start}\r\n| extend severity = tostring(properties[\"essentials\"][\"severity\"])\r\n| extend AffectedResource = tostring(properties[\"essentials\"][\"targetResource\"])\r\n| where AffectedResource =~ \"{VMResourceID}\"\r\n| extend MonitorCondition = tostring(properties[\"essentials\"][\"monitorCondition\"])\r\n| extend AlertState = tostring(properties[\"essentials\"][\"alertState\"])\r\n| project Raised, severity, name, AffectedResource, MonitorCondition, AlertState, id\r\n| order by severity desc, Raised desc\r\n",
+              "size": 0,
+              "title": "Alertas",
+              "noDataMessage": "Não há alertas para este recurso no período escolhido",
+              "queryType": 1,
+              "resourceType": "microsoft.resources/tenants",
+              "crossComponentResources": [
+                "value::tenant"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Raised",
+                    "formatter": 6
+                  },
+                  {
+                    "columnMatch": "severity",
+                    "formatter": 11
+                  },
+                  {
+                    "columnMatch": "MonitorCondition",
+                    "formatter": 11
+                  },
+                  {
+                    "columnMatch": "id",
+                    "formatter": 7,
+                    "formatOptions": {
+                      "linkTarget": "OpenBlade",
+                      "linkLabel": "Abrir",
+                      "linkIsContextBlade": true,
+                      "bladeOpenContext": {
+                        "bladeName": "AlertDetailsTemplateBlade",
+                        "extensionName": "Microsoft_Azure_Monitoring",
+                        "bladeParameters": [
+                          {
+                            "name": "alertId",
+                            "source": "column",
+                            "value": "id"
+                          }
+                        ]
+                      },
+                      "customColumnWidthSetting": "21.2857ch"
+                    }
+                  }
+                ],
+                "rowLimit": 1000,
+                "filter": true,
+                "hierarchySettings": {
+                  "treeType": 1,
+                  "groupBy": [
+                    "MonitorCondition"
+                  ],
+                  "expandTopLevel": true
+                },
+                "labelSettings": [
+                  {
+                    "columnId": "Raised",
+                    "label": "Aberto em"
+                  },
+                  {
+                    "columnId": "severity",
+                    "label": "Severidade"
+                  },
+                  {
+                    "columnId": "name",
+                    "label": "Nome"
+                  },
+                  {
+                    "columnId": "AffectedResource",
+                    "label": "Recurso Afetado"
+                  },
+                  {
+                    "columnId": "MonitorCondition",
+                    "label": "Condição do monitor"
+                  },
+                  {
+                    "columnId": "AlertState",
+                    "label": "Estado do Alerta"
+                  },
+                  {
+                    "columnId": "id",
+                    "label": "Detalhes do alerta"
+                  }
+                ]
+              }
+            },
+            "name": "VM Alerts"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "Alerts"
+      },
+      "name": "Alerts Group"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "title": "Eventos (Syslog / Windows Events)",
+        "items": [
+          {
+            "type": 12,
+            "content": {
+              "version": "NotebookGroup/1.0",
+              "groupType": "editable",
+              "title": "Servidor Linux - Exibindo eventos Syslog",
+              "items": [
+                {
+                  "type": 9,
+                  "content": {
+                    "version": "KqlParameterItem/1.0",
+                    "crossComponentResources": [
+                      "{Workspace}"
+                    ],
+                    "parameters": [
+                      {
+                        "id": "e746f676-fe9f-42cd-a4eb-6fa03ae299cc",
+                        "version": "KqlParameterItem/1.0",
+                        "name": "SyslogSeverity",
+                        "label": "Severity",
+                        "type": 2,
+                        "isRequired": true,
+                        "multiSelect": true,
+                        "quote": "'",
+                        "delimiter": ",",
+                        "query": "Syslog\r\n| where _ResourceId =~ \"{VMResourceID}\"\r\n| distinct SeverityLevel",
+                        "crossComponentResources": [
+                          "{Workspace}"
+                        ],
+                        "typeSettings": {
+                          "additionalResourceOptions": [
+                            "value::all"
+                          ],
+                          "showDefault": false
+                        },
+                        "timeContext": {
+                          "durationMs": 0
+                        },
+                        "timeContextFromParameter": "TimeRange",
+                        "defaultValue": "value::all",
+                        "queryType": 0,
+                        "resourceType": "microsoft.operationalinsights/workspaces"
+                      },
+                      {
+                        "version": "KqlParameterItem/1.0",
+                        "name": "SyslogFacility",
+                        "label": "Facility",
+                        "type": 2,
+                        "isRequired": true,
+                        "multiSelect": true,
+                        "quote": "'",
+                        "delimiter": ",",
+                        "query": "Syslog\r\n| where _ResourceId =~ \"{VMResourceID}\"\r\n| distinct Facility",
+                        "crossComponentResources": [
+                          "{Workspace}"
+                        ],
+                        "typeSettings": {
+                          "additionalResourceOptions": [
+                            "value::all"
+                          ],
+                          "showDefault": false
+                        },
+                        "timeContext": {
+                          "durationMs": 0
+                        },
+                        "timeContextFromParameter": "TimeRange",
+                        "defaultValue": "value::all",
+                        "queryType": 0,
+                        "resourceType": "microsoft.operationalinsights/workspaces",
+                        "id": "b4be3651-49a1-4f6c-ad8a-d6108715849f"
+                      }
+                    ],
+                    "style": "above",
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces"
+                  },
+                  "name": "parameters - 1"
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "Syslog\r\n| where _ResourceId =~ \"{VMResourceID}\"\r\n| where SeverityLevel in ({SyslogSeverity}) and Facility in ({SyslogFacility})\r\n| project EventTime, _ResourceId, SeverityLevel, Facility, SyslogMessage, ProcessName, ProcessID\r\n| order by EventTime desc\r\n",
+                    "size": 0,
+                    "showAnalytics": true,
+                    "noDataMessage": "Não há dados a exibir",
+                    "timeContextFromParameter": "TimeRange",
+                    "showExportToExcel": true,
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "crossComponentResources": [
+                      "{Workspace}"
+                    ],
+                    "gridSettings": {
+                      "formatters": [
+                        {
+                          "columnMatch": "EventTime",
+                          "formatter": 0,
+                          "formatOptions": {
+                            "customColumnWidthSetting": "24.1429ch"
+                          }
+                        },
+                        {
+                          "columnMatch": "_ResourceId",
+                          "formatter": 0,
+                          "formatOptions": {
+                            "customColumnWidthSetting": "18.7143ch"
+                          }
+                        },
+                        {
+                          "columnMatch": "SeverityLevel",
+                          "formatter": 18,
+                          "formatOptions": {
+                            "thresholdsOptions": "icons",
+                            "thresholdsGrid": [
+                              {
+                                "operator": "==",
+                                "thresholdValue": "notice",
+                                "representation": "1",
+                                "text": "{0}{1}"
+                              },
+                              {
+                                "operator": "==",
+                                "thresholdValue": "warning",
+                                "representation": "2",
+                                "text": "{0}{1}"
+                              },
+                              {
+                                "operator": "==",
+                                "thresholdValue": "error",
+                                "representation": "3",
+                                "text": "{0}{1}"
+                              },
+                              {
+                                "operator": "Default",
+                                "thresholdValue": null,
+                                "representation": "unknown",
+                                "text": "{0}{1}"
+                              }
+                            ],
+                            "customColumnWidthSetting": "21.5ch"
+                          }
+                        },
+                        {
+                          "columnMatch": "Facility",
+                          "formatter": 0,
+                          "formatOptions": {
+                            "customColumnWidthSetting": "14ch"
+                          }
+                        },
+                        {
+                          "columnMatch": "SyslogMessage",
+                          "formatter": 0,
+                          "formatOptions": {
+                            "customColumnWidthSetting": "107.8571ch"
+                          }
+                        },
+                        {
+                          "columnMatch": "ProcessName",
+                          "formatter": 0,
+                          "formatOptions": {
+                            "customColumnWidthSetting": "17ch"
+                          }
+                        },
+                        {
+                          "columnMatch": "ProcessID",
+                          "formatter": 0,
+                          "formatOptions": {
+                            "customColumnWidthSetting": "15ch"
+                          }
+                        }
+                      ],
+                      "filter": true
+                    }
+                  },
+                  "conditionalVisibilities": [
+                    {
+                      "parameterName": "SyslogSeverity",
+                      "comparison": "isNotEqualTo"
+                    },
+                    {
+                      "parameterName": "SyslogFacility",
+                      "comparison": "isNotEqualTo"
+                    }
+                  ],
+                  "name": "Syslog query"
+                }
+              ]
+            },
+            "conditionalVisibility": {
+              "parameterName": "OSType",
+              "comparison": "isEqualTo",
+              "value": "linux"
+            },
+            "name": "Group - Syslog - Linux"
+          },
+          {
+            "type": 12,
+            "content": {
+              "version": "NotebookGroup/1.0",
+              "groupType": "editable",
+              "title": "Servidor Windows - Exibindo Windows Event Logs",
+              "items": [
+                {
+                  "type": 9,
+                  "content": {
+                    "version": "KqlParameterItem/1.0",
+                    "crossComponentResources": [
+                      "{Workspace}"
+                    ],
+                    "parameters": [
+                      {
+                        "id": "c9344574-aeb7-4576-9dc0-dfa5446b59c9",
+                        "version": "KqlParameterItem/1.0",
+                        "name": "EventLevelParam",
+                        "label": "Event Level",
+                        "type": 2,
+                        "isRequired": true,
+                        "multiSelect": true,
+                        "quote": "'",
+                        "delimiter": ",",
+                        "query": "Event\r\n| where _ResourceId =~ \"{VMResourceID}\"\r\n| distinct EventLevelName\r\n",
+                        "crossComponentResources": [
+                          "{Workspace}"
+                        ],
+                        "typeSettings": {
+                          "additionalResourceOptions": [
+                            "value::all"
+                          ],
+                          "showDefault": false
+                        },
+                        "timeContext": {
+                          "durationMs": 0
+                        },
+                        "timeContextFromParameter": "TimeRange",
+                        "queryType": 0,
+                        "resourceType": "microsoft.operationalinsights/workspaces",
+                        "value": [
+                          "value::all"
+                        ]
+                      },
+                      {
+                        "id": "fa90af7c-f726-48e4-bcbf-ef362b618061",
+                        "version": "KqlParameterItem/1.0",
+                        "name": "EventLogParam",
+                        "label": "Event Log",
+                        "type": 2,
+                        "isRequired": true,
+                        "multiSelect": true,
+                        "quote": "'",
+                        "delimiter": ",",
+                        "query": "Event\r\n| where _ResourceId =~ \"{VMResourceID}\" \r\n| where EventLevelName in ({EventLevelParam}) | distinct EventLog",
+                        "crossComponentResources": [
+                          "{Workspace}"
+                        ],
+                        "typeSettings": {
+                          "additionalResourceOptions": [
+                            "value::all"
+                          ],
+                          "showDefault": false
+                        },
+                        "timeContext": {
+                          "durationMs": 0
+                        },
+                        "timeContextFromParameter": "TimeRange",
+                        "queryType": 0,
+                        "resourceType": "microsoft.operationalinsights/workspaces",
+                        "value": [
+                          "value::all"
+                        ]
+                      },
+                      {
+                        "id": "17c05ceb-6533-437a-90a2-46847524509e",
+                        "version": "KqlParameterItem/1.0",
+                        "name": "SourceParam",
+                        "label": "Source",
+                        "type": 2,
+                        "isRequired": true,
+                        "multiSelect": true,
+                        "quote": "'",
+                        "delimiter": ",",
+                        "query": "Event \r\n| where _ResourceId =~ \"{VMResourceID}\"\r\n| where EventLevelName in ({EventLevelParam}) and EventLog in ({EventLogParam})\r\n| distinct Source\r\n| project NormalizedSource = replace_string(Source,@\"\\\",@\"\\\\\")",
+                        "crossComponentResources": [
+                          "{Workspace}"
+                        ],
+                        "typeSettings": {
+                          "additionalResourceOptions": [
+                            "value::all"
+                          ],
+                          "showDefault": false
+                        },
+                        "timeContext": {
+                          "durationMs": 0
+                        },
+                        "timeContextFromParameter": "TimeRange",
+                        "queryType": 0,
+                        "resourceType": "microsoft.operationalinsights/workspaces",
+                        "value": [
+                          "value::all"
+                        ]
+                      },
+                      {
+                        "id": "16b6c9d3-4c43-488a-946a-632626859c63",
+                        "version": "KqlParameterItem/1.0",
+                        "name": "EventIDParam",
+                        "label": "Event ID",
+                        "type": 2,
+                        "isRequired": true,
+                        "multiSelect": true,
+                        "quote": "'",
+                        "delimiter": ",",
+                        "query": "Event \r\n| where _ResourceId =~ \"{VMResourceID}\"\r\n| where EventLevelName in ({EventLevelParam}) and Source in ({SourceParam})\r\n| distinct EventID",
+                        "crossComponentResources": [
+                          "{Workspace}"
+                        ],
+                        "typeSettings": {
+                          "additionalResourceOptions": [
+                            "value::all"
+                          ],
+                          "showDefault": false
+                        },
+                        "timeContext": {
+                          "durationMs": 0
+                        },
+                        "timeContextFromParameter": "TimeRange",
+                        "queryType": 0,
+                        "resourceType": "microsoft.operationalinsights/workspaces",
+                        "value": [
+                          "value::all"
+                        ]
+                      }
+                    ],
+                    "style": "above",
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces"
+                  },
+                  "name": "Windows Event Parameters"
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "Event \r\n| where _ResourceId =~ \"{VMResourceID}\" and EventLevelName in ({EventLevelParam}) and EventLog in ({EventLogParam}) and Source in ({SourceParam}) and EventID in ({EventIDParam})\r\n| summarize Events = count() by EventLevelName, bin(TimeGenerated, 1h)",
+                    "size": 1,
+                    "title": "Linha do tempo - Selecione um intervalo para refletir nos eventos exibidos abaixo",
+                    "timeContextFromParameter": "TimeRange",
+                    "timeBrushParameterName": "TimeRange",
+                    "timeBrushExportOnlyWhenBrushed": true,
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "crossComponentResources": [
+                      "{Workspace}"
+                    ],
+                    "visualization": "linechart"
+                  },
+                  "name": "Event Timeline"
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "Event\r\n| where _ResourceId =~ \"{VMResourceID}\" and EventLevelName in ({EventLevelParam}) and EventLog in ({EventLogParam}) and Source in ({SourceParam}) and EventID in ({EventIDParam})\r\n| summarize Events = count() by EventLog",
+                    "size": 1,
+                    "title": "Events by Log Name",
+                    "timeContextFromParameter": "TimeRange",
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "crossComponentResources": [
+                      "{Workspace}"
+                    ],
+                    "visualization": "piechart"
+                  },
+                  "customWidth": "33",
+                  "name": "Events by Log",
+                  "styleSettings": {
+                    "showBorder": true
+                  }
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "Event\r\n| where _ResourceId =~ \"{VMResourceID}\" and EventLevelName in ({EventLevelParam}) and EventLog in ({EventLogParam}) and Source in ({SourceParam}) and EventID in ({EventIDParam})\r\n| summarize Events = count() by Source",
+                    "size": 1,
+                    "title": "Events by Source",
+                    "timeContextFromParameter": "TimeRange",
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "crossComponentResources": [
+                      "{Workspace}"
+                    ],
+                    "visualization": "piechart"
+                  },
+                  "customWidth": "34",
+                  "name": "Events by Source",
+                  "styleSettings": {
+                    "showBorder": true
+                  }
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "Event\r\n| where _ResourceId =~ \"{VMResourceID}\" and EventLevelName in ({EventLevelParam}) and EventLog in ({EventLogParam}) and Source in ({SourceParam}) and EventID in ({EventIDParam})\r\n| summarize Events = count() by tostring(EventID)",
+                    "size": 1,
+                    "title": "Events by ID",
+                    "timeContextFromParameter": "TimeRange",
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "crossComponentResources": [
+                      "{Workspace}"
+                    ],
+                    "visualization": "piechart"
+                  },
+                  "customWidth": "33",
+                  "name": "Events by ID",
+                  "styleSettings": {
+                    "showBorder": true
+                  }
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "Event\r\n| where _ResourceId =~ \"{VMResourceID}\" and EventLevelName in ({EventLevelParam}) and EventLog in ({EventLogParam}) and Source in ({SourceParam}) and EventID in ({EventIDParam})\r\n| project TimeGenerated, Computer, EventLevelName, EventID, EventLog, Source, RenderedDescription \r\n| order by TimeGenerated desc",
+                    "size": 0,
+                    "showAnalytics": true,
+                    "title": "Lista de Eventos - Top 1000 - Ordem descrescente por tempo",
+                    "timeContextFromParameter": "TimeRange",
+                    "showExportToExcel": true,
+                    "queryType": 0,
+                    "resourceType": "microsoft.operationalinsights/workspaces",
+                    "crossComponentResources": [
+                      "{Workspace}"
+                    ],
+                    "gridSettings": {
+                      "formatters": [
+                        {
+                          "columnMatch": "TimeGenerated",
+                          "formatter": 0,
+                          "formatOptions": {
+                            "customColumnWidthSetting": "25.8571ch"
+                          }
+                        },
+                        {
+                          "columnMatch": "Computer",
+                          "formatter": 0,
+                          "formatOptions": {
+                            "customColumnWidthSetting": "35ch"
+                          }
+                        },
+                        {
+                          "columnMatch": "EventLevelName",
+                          "formatter": 0,
+                          "formatOptions": {
+                            "customColumnWidthSetting": "14.8571ch"
+                          }
+                        },
+                        {
+                          "columnMatch": "EventID",
+                          "formatter": 0,
+                          "formatOptions": {
+                            "customColumnWidthSetting": "13ch"
+                          }
+                        },
+                        {
+                          "columnMatch": "EventLog",
+                          "formatter": 0,
+                          "formatOptions": {
+                            "customColumnWidthSetting": "47.1429ch"
+                          }
+                        },
+                        {
+                          "columnMatch": "Source",
+                          "formatter": 0,
+                          "formatOptions": {
+                            "customColumnWidthSetting": "38.4286ch"
+                          }
+                        }
+                      ],
+                      "rowLimit": 1000,
+                      "filter": true
+                    }
+                  },
+                  "name": "Windows Events List"
+                }
+              ]
+            },
+            "conditionalVisibility": {
+              "parameterName": "OSType",
+              "comparison": "isEqualTo",
+              "value": "windows"
+            },
+            "name": "group - Windows Events"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "Events"
+      },
+      "name": "Events Group"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "AzureActivity\r\n| where _ResourceId =~ \"{VMResourceID}\"\r\n| project TimeGenerated, _ResourceId, Level, CategoryValue, OperationNameValue ,ActivityStatusValue, Caller, Details = pack_all()\r\n| order by TimeGenerated desc",
+              "size": 0,
+              "showAnalytics": true,
+              "noDataMessage": "Não há eventos para este recurso no log de atividades no período solicitado",
+              "timeContextFromParameter": "TimeRange",
+              "showExportToExcel": true,
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Level",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Information",
+                          "representation": "1",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "unknown",
+                          "text": "{0}{1}"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "Details",
+                    "formatter": 7,
+                    "formatOptions": {
+                      "linkTarget": "CellDetails",
+                      "linkLabel": "Abrir",
+                      "linkIsContextBlade": true
+                    }
+                  }
+                ],
+                "labelSettings": [
+                  {
+                    "columnId": "_ResourceId",
+                    "label": "Recurso"
+                  },
+                  {
+                    "columnId": "Level",
+                    "label": "Nível"
+                  },
+                  {
+                    "columnId": "CategoryValue",
+                    "label": "Categoria"
+                  },
+                  {
+                    "columnId": "OperationNameValue",
+                    "label": "Operação"
+                  },
+                  {
+                    "columnId": "ActivityStatusValue",
+                    "label": "Status"
+                  },
+                  {
+                    "columnId": "Caller",
+                    "label": "Solicitante"
+                  },
+                  {
+                    "columnId": "Details",
+                    "label": "Detalhes"
+                  }
+                ]
+              }
+            },
+            "name": "Activity Logs - Query"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "ActivityLog"
+      },
+      "name": "Activity Log Group"
+    }
+  ],
+  "fallbackResourceIds": [
+    "Azure Monitor"
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}

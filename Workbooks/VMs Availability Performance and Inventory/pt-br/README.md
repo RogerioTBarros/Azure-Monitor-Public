@@ -1,61 +1,63 @@
-## Visão Geral
+# VMs - Disponibilidade, Performance e Inventário (pt-br)
 
-Este workbook foi desenvolvido para fornecer uma visão abrangente sobre a disponibilidade e performance de máquinas virtuais (VMs) no Azure, tanto para servidores Windows quanto Linux. Ele utiliza o VM Insights para coletar e exibir dados de performance, permitindo que os usuários monitorem e analisem o estado de suas VMs de forma eficiente.
+Este workbook fornece uma visão abrangente sobre a disponibilidade, performance e inventário das suas máquinas virtuais (VMs) Azure e servidores híbridos (Azure Arc). Ele permite monitorar rapidamente o status operacional, identificar gargalos de desempenho e obter insights detalhados sobre o uso dos recursos computacionais.
 
-## Funcionalidades
+## Funcionalidades Principais
 
-### Parâmetros de Filtro
+- **Visão Geral de Status**: Exibe o status atual das VMs, classificando-as como saudáveis ou não saudáveis com base em critérios como conectividade e estado operacional.
+- **Monitoramento de Performance**: Apresenta métricas essenciais como uso de CPU, memória e espaço em disco, permitindo identificar rapidamente recursos com alta ou baixa utilização.
+- **Inventário Completo**: Lista detalhadamente todas as VMs e servidores híbridos, incluindo informações sobre sistema operacional, grupo de recursos e subscription associada.
+- **Drill-down Detalhado**: Possibilidade de aprofundar a análise em máquinas específicas, visualizando gráficos históricos e métricas detalhadas.
 
-O workbook permite a configuração de diversos parâmetros de filtro para personalizar a visualização dos dados:
+## Como Utilizar o Workbook
 
-- **Intervalo de Tempo (TimeRangeParam)**: Define o período de tempo para a análise dos dados.
-- **Subscription**: Permite selecionar uma ou mais assinaturas do Azure.
-- **Resource Group**: Filtra os dados por grupos de recursos específicos.
-- **Workspace**: Seleciona workspaces específicos para análise.
-- **Exibir Filtros (ShowFilters)**: Controla a visibilidade dos filtros.
-- **Exibir Ajuda (ShowHelp)**: Controla a visibilidade das instruções de uso.
-- **Exibir Resumo (ShowSummary)**: Controla a visibilidade do resumo dos dados.
+Para que os dados sejam exibidos corretamente, é necessário que as máquinas estejam configuradas com o **VM Insights** (associadas a uma Data Collection Rule que popula a tabela InsightsMetrics). Caso contrário, as informações de performance não estarão disponíveis.
 
-### Resumo
+## Parâmetros Configuráveis pelo Usuário
 
-O resumo fornece uma visão geral do estado das VMs, incluindo:
+O workbook oferece diversos parâmetros que podem ser ajustados conforme a necessidade:
 
-- **Status (Azure)**: Exibe a quantidade de VMs saudáveis e não saudáveis.
-- **Tipos de Máquina**: Mostra a distribuição dos tipos de máquinas (Azure VM e ARC Server).
-- **Sistema Operacional**: Apresenta a distribuição dos sistemas operacionais das VMs.
+| Parâmetro | Descrição |
+|-----------|-----------|
+| **Intervalo (TimeRange)** | Define o período de tempo para análise dos dados (últimas 24 horas, 7 dias, etc.). |
+| **Subscription (VMs)** | Permite selecionar uma ou mais subscriptions contendo as VMs que serão analisadas. |
+| **Resource Group (VMs)** | Filtra as VMs por grupos de recursos específicos. |
+| **Subscription (Workspace)** | Define a subscription onde estão localizados os workspaces do Log Analytics. |
+| **Resource Group (Workspace)** | Seleciona os grupos de recursos dos workspaces do Log Analytics. |
+| **Workspace** | Seleciona os workspaces específicos que contêm os dados coletados das VMs. |
+| **Exibir Filtros** | Habilita ou desabilita filtros adicionais para refinar a visualização dos dados. |
+| **Exibir Ajuda** | Exibe ou oculta informações adicionais sobre como utilizar o workbook. |
+| **Exibir Resumo** | Mostra ou oculta gráficos resumidos sobre o status geral das VMs. |
+| **Thresholds de Performance** | Permite definir limites personalizados para alertas de CPU, memória, espaço em disco e heartbeat. |
+| **Filtro de Servidores** | Utiliza expressões regulares para filtrar servidores específicos por nome. |
+| **Tipo de Agregação** | Escolhe o tipo de agregação das métricas exibidas (média, máximo ou mínimo). |
 
-### Lista de VMs
+## Cenários de Uso
 
-Uma tabela detalhada lista todas as VMs, permitindo a visualização de informações como:
+- **Monitoramento Contínuo**: Utilize o workbook para acompanhar regularmente o status e desempenho das suas VMs, garantindo uma operação saudável e eficiente.
+- **Troubleshooting Rápido**: Identifique rapidamente máquinas com problemas de performance ou disponibilidade, facilitando ações corretivas imediatas.
+- **Planejamento de Capacidade**: Analise o uso histórico dos recursos para planejar expansões ou otimizações de infraestrutura.
 
-- **Status (Azure)**
-- **Disponibilidade (HeartbeatState)**
-- **Performance (PerfState)**
-- **Recurso (id)**
-- **Subscription**
-- **Resource Group**
-- **Sistema Operacional (OSType)**
-- **Último Heartbeat**
-- **Uso de CPU (% CPU)**
-- **Uso de Memória (% Mem)**
-- **Uso de Disco (% OSDisk)**
+## Pré-requisitos
 
-### Performance e Estatísticas
+- Máquinas configuradas com VM Insights.
+- Permissões adequadas para acessar os dados dos workspaces do Log Analytics e recursos Azure.
 
-Esta seção inclui gráficos e tabelas que detalham a performance das VMs:
+## Como Implantar o Workbook
 
-- **Top 5 Recursos com Maior Utilização**: Exibe as VMs com maior uso de CPU, memória e disco.
-- **Top 5 Recursos com Menor Utilização**: Exibe as VMs com menor uso de CPU, memória e disco.
-- **Gráficos de Linha**: Mostram a média, máximo e mínimo de uso de CPU e memória ao longo do tempo.
+Para implantar corretamente este workbook no Azure, siga os passos abaixo:
 
-## Utilidade
+1. **Arquivos Necessários**: Certifique-se de implantar ambos os arquivos fornecidos no repositório:
+   - `VMs - Availability Performance and Inventory - pt-br.workbook`
+   - `Detalhamento VMs.workbook`
+- **Detalhamento VM**: Workbook complementar que fornece detalhes adicionais sobre cada VM individualmente.
 
-Este workbook é uma ferramenta poderosa para administradores de sistemas e engenheiros de DevOps que precisam monitorar a saúde e a performance de suas VMs no Azure. Ele oferece uma interface intuitiva para filtrar e visualizar dados críticos, ajudando na identificação de problemas e na otimização do desempenho das VMs.
+### Importante:
 
-## Como Utilizar
+- Ambos os arquivos devem ser implantados no Azure.
+- Após a implantação, é necessário ajustar a referência do **Resource ID** no workbook principal para apontar corretamente para o workbook complementar (**Detalhamento VM**). Isso garante que o drill-down detalhado funcione corretamente ao clicar em "Detalhes".
+- Ao implantar os 2 workbooks, colete o resource ID do workbook Detalhamento VMs, edite o arquivo principal (VMs - Availability Performance and Inventory - pt-br.workbook) e procure pelo termo `"ResourceIDWorkbookDetalhamentoVM"`. Substitua este texto pelo resource ID do workbook de detalhes implantado em seu ambiente e depois prossiga com o processo de deployment do workbook principal.. Caso haja dúvidas, por favor envie uma mensagem.
 
-Para que os dados de performance sejam exibidos corretamente, é necessário que as máquinas estejam configuradas com o VM Insights e associadas à Data Collection Rule que popula a tabela InsightsMetrics. Caso contrário, os dados não serão exibidos.
+---
 
-## Conclusão
-
-O workbook "VMs - Availability Performance and Inventory" é essencial para qualquer equipe que gerencia VMs no Azure, proporcionando insights valiosos sobre a disponibilidade e performance das máquinas virtuais, facilitando a tomada de decisões informadas e a manutenção da infraestrutura em ótimo estado.
+Este workbook é uma ferramenta essencial para administradores e equipes de operações que buscam uma visão clara e detalhada sobre o ambiente de máquinas virtuais e servidores híbridos no Azure.

@@ -932,7 +932,7 @@
                         "componentIdSource": "workbook",
                         "resourceIdsSource": "workbook",
                         "templateIdSource": "static",
-                        "templateId": "/subscriptions/a08eb318-0b05-45e9-91e2-fd9622c79e00/resourceGroups/TJSP-PROD-STI4-WORKBOOKS-PROD/providers/microsoft.insights/workbooks/8b8ea8da-704a-43af-9451-b203cf359333",
+                        "templateId": "ResourceIDWorkbookDetalhamentoVM",
                         "typeSource": "workbook",
                         "gallerySource": "workbook",
                         "locationSource": "default",
