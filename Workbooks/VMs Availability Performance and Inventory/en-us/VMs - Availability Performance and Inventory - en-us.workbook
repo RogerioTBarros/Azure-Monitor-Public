@@ -4,7 +4,7 @@
     {
       "type": 1,
       "content": {
-        "json": "# Availability, Performance and Inventory\r\n## Windows and Linux Servers"
+        "json": "# Availability and Performance - VM Insights\r\n## Windows and Linux Servers"
       },
       "name": "text - 2"
     },
@@ -13,7 +13,7 @@
       "content": {
         "version": "KqlParameterItem/1.0",
         "crossComponentResources": [
-          "{SubscriptionParam}"
+          "{LAWSubscription}"
         ],
         "parameters": [
           {
@@ -24,7 +24,7 @@
             "type": 4,
             "isRequired": true,
             "value": {
-              "durationMs": 3600000
+              "durationMs": 86400000
             },
             "typeSettings": {
               "selectableValues": [
@@ -75,17 +75,14 @@
             "id": "42d4d6ef-cdc1-4169-a59c-afe42a146e2f",
             "version": "KqlParameterItem/1.0",
             "name": "SubscriptionParam",
-            "label": "Subscription",
+            "label": "Subscription (VMs)",
             "type": 6,
             "isRequired": true,
             "multiSelect": true,
             "quote": "'",
             "delimiter": ",",
-            "query": "resources \r\n| where type =~ \"microsoft.operationalinsights/workspaces\" or type =~ \"microsoft.compute/virtualmachines\" or type =~ \"microsoft.hybridcompute/machines\"\r\n| distinct subscriptionId",
+            "query": "Resources\r\n| where type in~ (\"microsoft.compute/virtualmachines\",\"microsoft.hybridcompute/machines\")\r\n| summarize Count = count() by subscriptionId\r\n| order by Count desc\r\n| extend Rank = row_number()\r\n| project value = subscriptionId, label = subscriptionId, selected = Rank == 1",
             "crossComponentResources": [
-              "value::all"
-            ],
-            "value": [
               "value::all"
             ],
             "typeSettings": {
@@ -104,18 +101,15 @@
             "id": "4e4c439a-55d9-4b6c-ac45-d687326904ef",
             "version": "KqlParameterItem/1.0",
             "name": "ResourceGroup",
-            "label": "Resource Group",
+            "label": "Resource Group (VMs)",
             "type": 5,
             "isRequired": true,
             "multiSelect": true,
             "quote": "'",
             "delimiter": ",",
-            "query": "resources\r\n| distinct resourceGroup",
+            "query": "resources\r\n| where type in~ (\"microsoft.compute/virtualmachines\",\"microsoft.hybridcompute/machines\")\r\n| summarize Count = count() by subscriptionId, resourceGroup\r\n| order by Count desc\r\n| extend Rank = row_number()\r\n| project value = strcat('/subscriptions/', subscriptionId, '/resourceGroups/', resourceGroup), label = resourceGroup, selected = false",
             "crossComponentResources": [
               "{SubscriptionParam}"
-            ],
-            "value": [
-              "value::all"
             ],
             "typeSettings": {
               "additionalResourceOptions": [
@@ -127,7 +121,65 @@
               "durationMs": 86400000
             },
             "queryType": 1,
-            "resourceType": "microsoft.resourcegraph/resources"
+            "resourceType": "microsoft.resourcegraph/resources",
+            "value": [
+              "value::all"
+            ]
+          },
+          {
+            "version": "KqlParameterItem/1.0",
+            "name": "LAWSubscription",
+            "label": "Subscription (Workspace)",
+            "type": 6,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "Resources\r\n| where type in~ (\"microsoft.compute/virtualmachines\",\"microsoft.hybridcompute/machines\")\r\n| summarize Count = count() by subscriptionId\r\n| order by Count desc\r\n| extend Rank = row_number()\r\n| project value = subscriptionId, label = subscriptionId, selected = Rank == 1",
+            "crossComponentResources": [
+              "value::tenant"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "showDefault": false
+            },
+            "timeContext": {
+              "durationMs": 86400000
+            },
+            "queryType": 1,
+            "resourceType": "microsoft.resources/tenants",
+            "id": "d63765d2-31c3-42bc-bfc5-42323e442558"
+          },
+          {
+            "version": "KqlParameterItem/1.0",
+            "name": "LAWRG",
+            "label": "Resource Group (Workspace)",
+            "type": 5,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "resources\r\n| where type in~ (\"microsoft.compute/virtualmachines\",\"microsoft.hybridcompute/machines\")\r\n| summarize Count = count() by subscriptionId, resourceGroup\r\n| order by Count desc\r\n| extend Rank = row_number()\r\n| project value = strcat('/subscriptions/', subscriptionId, '/resourceGroups/', resourceGroup), label = resourceGroup, selected = false",
+            "crossComponentResources": [
+              "{LAWSubscription}"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "showDefault": false
+            },
+            "timeContext": {
+              "durationMs": 86400000
+            },
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources",
+            "value": [
+              "value::all"
+            ],
+            "id": "76c52f14-3cde-4d37-bfdf-86e67e787e4a"
           },
           {
             "id": "ef27d563-e21a-4f5c-9b2b-2f8aee1a157a",
@@ -135,14 +187,13 @@
             "name": "WorkspaceParam",
             "label": "Workspace",
             "type": 5,
-            "description": "Workspace where the VM telemetry (VM Insights) data is located at",
             "isRequired": true,
             "multiSelect": true,
             "quote": "'",
             "delimiter": ",",
-            "query": "where type =~ 'microsoft.operationalinsights/workspaces'\r\n| where resourceGroup in ({ResourceGroup})\r\n| project id",
+            "query": "where type =~ 'microsoft.operationalinsights/workspaces'\r\n| extend RG = strcat (\"/subscriptions/\",subscriptionId,\"/resourceGroups/\",resourceGroup)\r\n//| where RG in~ ({LAWRG})\r\n| project id",
             "crossComponentResources": [
-              "{SubscriptionParam}"
+              "{LAWSubscription}"
             ],
             "typeSettings": {
               "additionalResourceOptions": [
@@ -163,41 +214,39 @@
             "id": "a1f1ab02-42d3-4c31-9e05-77ae330bce94",
             "version": "KqlParameterItem/1.0",
             "name": "ShowFilters",
-            "label": "Show filters",
+            "label": "Show Filters",
             "type": 10,
             "isRequired": true,
             "typeSettings": {
-              "additionalResourceOptions": [],
-              "showDefault": false
+              "additionalResourceOptions": []
             },
-            "jsonData": "[{\"value\":\"true\",\"label\":\"Yes\",\"selected\":true},\r\n{\"value\":\"false\",\"label\":\"No\"}]"
+            "jsonData": "[{\"value\":\"true\",\"label\":\"Yes\",\"selected\":true},\r\n{\"value\":\"false\",\"label\":\"No\"}]",
+            "value": "false"
           },
           {
             "id": "0cadcd37-e29c-49c4-a2a9-82b49a472d1e",
             "version": "KqlParameterItem/1.0",
             "name": "ShowHelp",
-            "label": "Show help",
+            "label": "Show Help",
             "type": 10,
             "isRequired": true,
             "typeSettings": {
-              "additionalResourceOptions": [],
-              "showDefault": false
+              "additionalResourceOptions": []
             },
-            "jsonData": "[\r\n    {\"value\":\"true\",\"label\":\"Yes\"},\r\n    {\"value\":\"false\",\"label\":\"No\",\"selected\":true}]",
-            "value": "true"
+            "jsonData": "[\r\n    {\"value\":\"true\",\"label\":\"Yes\"},\r\n    {\"value\":\"false\",\"label\":\"No\",\"selected\":true}]"
           },
           {
-            "id": "d75336eb-12b6-4f11-875a-43d72495dff2",
             "version": "KqlParameterItem/1.0",
             "name": "ShowSummary",
-            "label": "Show summary",
+            "label": "Show Summary",
             "type": 10,
             "isRequired": true,
             "typeSettings": {
               "additionalResourceOptions": [],
               "showDefault": false
             },
-            "jsonData": "[\r\n    {\"value\":\"true\",\"label\":\"Yes\",\"selected\":true},\r\n    {\"value\":\"false\",\"label\":\"No\"}]"
+            "jsonData": "[\r\n    {\"value\":\"true\",\"label\":\"Yes\",\"selected\":true},\r\n    {\"value\":\"false\",\"label\":\"No\"}]",
+            "id": "d75336eb-12b6-4f11-875a-43d72495dff2"
           }
         ],
         "style": "above",
@@ -209,7 +258,7 @@
     {
       "type": 1,
       "content": {
-        "json": "### How to use this workbook\r\n\r\nIn order to show all the data, the computers will need to have the VM Insights properly set up.\r\nAt this current build, it will need the full set of data (Performance, map and dependencies) to show telemetry data. Will work on removing this dependency on upcoming versions.",
+        "json": "### How to use the Workbook\r\n\r\nFor performance data to be displayed correctly, machines must be configured with VM Insights (Associated with Data Collection Rule that populates the InsightsMetrics table). If not configured, performance information will not be displayed.",
         "style": "info"
       },
       "conditionalVisibility": {
@@ -267,24 +316,23 @@
                     "additionalResourceOptions": [],
                     "showDefault": false
                   },
-                  "jsonData": "[{\"value\":\"avg\",\"label\":\"avg\",\"selected\":true},\r\n{\"value\":\"max\",\"label\":\"max\"},\r\n{\"value\":\"min\",\"label\":\"min\"}]",
+                  "jsonData": "[{\"value\":\"avg\",\"label\":\"Média\",\"selected\":true},\r\n{\"value\":\"max\",\"label\":\"Máximo\"},\r\n{\"value\":\"min\",\"label\":\"Mínimo\"}]",
                   "timeContext": {
                     "durationMs": 86400000
-                  },
-                  "value": "max"
+                  }
                 },
                 {
                   "id": "efb3b066-84ab-4b90-884a-6bafae04e3d6",
                   "version": "KqlParameterItem/1.0",
                   "name": "OSTypeFilter",
-                  "label": "OS",
+                  "label": "Operating System",
                   "type": 10,
                   "isRequired": true,
                   "typeSettings": {
                     "additionalResourceOptions": [],
                     "showDefault": false
                   },
-                  "jsonData": "[\r\n    {\"value\":\"'windows'\",\"label\":\"Windows\"},\r\n    {\"value\":\"'linux'\",\"label\":\"Linux\"},\r\n    {\"value\":\"'windows','linux'\",\"label\":\"all\",\"selected\":true}\r\n]",
+                  "jsonData": "[\r\n    {\"value\":\"'windows'\",\"label\":\"Windows\"},\r\n    {\"value\":\"'linux'\",\"label\":\"Linux\"},\r\n    {\"value\":\"'windows','linux'\",\"label\":\"Todos\",\"selected\":true}\r\n]",
                   "timeContext": {
                     "durationMs": 86400000
                   }
@@ -293,9 +341,9 @@
                   "id": "ace2a32d-4ac9-4623-adb1-4c23678e57b1",
                   "version": "KqlParameterItem/1.0",
                   "name": "ServerNameFilter",
-                  "label": "Server Name Filter",
+                  "label": "Server Filter",
                   "type": 1,
-                  "description": "Uses RegEx syntax to filter server names - use .* for all",
+                  "description": "Uses RegEx syntax to filter servers displayed by name - Use .* for all",
                   "isRequired": true,
                   "value": ".*",
                   "timeContext": {
@@ -309,24 +357,25 @@
                   "label": "Show list",
                   "type": 10,
                   "isRequired": true,
+                  "isHiddenWhenLocked": true,
                   "typeSettings": {
                     "additionalResourceOptions": [],
                     "showDefault": false
                   },
-                  "jsonData": "[{\"value\":\"flat\",\"label\":\"Direct\",\"selected\":true},\r\n{\"value\":\"hierarchy\",\"label\":\"Hierarchy\"}]"
+                  "jsonData": "[{\"value\":\"flat\",\"label\":\"Direta\",\"selected\":true},\r\n{\"value\":\"hierarchy\",\"label\":\"Hierárquica\"}]"
                 },
                 {
                   "id": "1ce4ee12-6f0c-47eb-95e6-5c3eb9cc26ec",
                   "version": "KqlParameterItem/1.0",
                   "name": "MachineType",
-                  "label": "Machine Type",
+                  "label": "Machine type",
                   "type": 10,
                   "isRequired": true,
                   "typeSettings": {
                     "additionalResourceOptions": [],
                     "showDefault": false
                   },
-                  "jsonData": "[\r\n    {\"value\":\"type =~ 'microsoft.compute/virtualmachines'\",\"label\":\"Azure VM\"},\r\n    {\"value\":\"type =~ 'microsoft.hybridcompute/machines'\",\"label\":\"ARC Server\"},\r\n    {\"value\":\"true\",\"label\":\"All\",\"selected\":true}\r\n]"
+                  "jsonData": "[\r\n    {\"value\":\"type =~ 'microsoft.compute/virtualmachines'\",\"label\":\"Azure VM\"},\r\n    {\"value\":\"type =~ 'microsoft.hybridcompute/machines'\",\"label\":\"ARC Server\"},\r\n    {\"value\":\"true\",\"label\":\"Todos\",\"selected\":true}\r\n]"
                 }
               ],
               "style": "above",
@@ -351,27 +400,27 @@
                   "name": "AzureStatusFilter",
                   "label": "Status (Azure)",
                   "type": 10,
-                  "description": "Filter Healty or unhealthy machines on the Status field (Azure)",
+                  "description": "Filters healthy or unhealthy machines in the Status (Azure) field",
                   "isRequired": true,
                   "typeSettings": {
                     "additionalResourceOptions": [],
                     "showDefault": false
                   },
-                  "jsonData": "[\r\n    {\"label\":\"Healthy\",\"value\":\"MachineStatus in('Connected','VM running')\"},\r\n    {\"label\":\"Unhealthy\",\"value\":\"MachineStatus !in('Connected','VM running')\"},\r\n    {\"label\":\"All\",\"value\":\"true\",\"selected\":true}\r\n]"
+                  "jsonData": "[\r\n    {\"label\":\"Saudáveis\",\"value\":\"MachineStatus in('Connected','VM running')\"},\r\n    {\"label\":\"Não saudáveis\",\"value\":\"MachineStatus !in('Connected','VM running')\"},\r\n    {\"label\":\"Todos\",\"value\":\"true\",\"selected\":true}\r\n]"
                 },
                 {
                   "id": "d2b43e07-7249-4e4f-87a3-97812028965c",
                   "version": "KqlParameterItem/1.0",
                   "name": "FilterOnThresholds",
-                  "label": "Filter on Thresholds",
+                  "label": "Threshold Filter",
                   "type": 10,
-                  "description": "Filter based on reaching the thresholds set",
+                  "description": "Filter based on configured threshold violations",
                   "isRequired": true,
                   "typeSettings": {
                     "additionalResourceOptions": [],
                     "showDefault": false
                   },
-                  "jsonData": "[{\"value\":\"Perf\",\"label\":\"Performance\"},\r\n{\"value\":\"Heartbeat\",\"label\":\"Availability\"},\r\n{\"value\":\"All\",\"label\":\"Both\"},\r\n{\"value\":\"None\",\"label\":\"None\",\"selected\":true}]",
+                  "jsonData": "[{\"value\":\"Perf\",\"label\":\"Performance\"},\r\n{\"value\":\"Heartbeat\",\"label\":\"Disponibilidade\"},\r\n{\"value\":\"All\",\"label\":\"Ambos\"},\r\n{\"value\":\"None\",\"label\":\"Nenhum\",\"selected\":true}]",
                   "timeContext": {
                     "durationMs": 86400000
                   }
@@ -474,251 +523,76 @@
             "name": "Threshold Filters"
           },
           {
-            "type": 3,
+            "type": 9,
             "content": {
-              "version": "KqlItem/1.0",
-              "query": "resources \r\n| where type =~ \"microsoft.compute/virtualmachines\" or type =~ \"microsoft.hybridcompute/machines\" \r\n| where resourceGroup in ({ResourceGroup})\r\n| where {MachineType} \r\n| project subscriptionId, resourceGroup, id, type, ARCState = properties.status, AZVMState = properties.extended.instanceView.powerState.displayStatus\r\n| extend MachineStatus = iif(type =~ \"microsoft.compute/virtualmachines\",AZVMState,ARCState)\r\n| where {AzureStatusFilter}\r\n| extend RG = strcat(\"/subscriptions/\", subscriptionId, \"/resourceGroups/\", resourceGroup)\r\n| project-away AZVMState, ARCState, resourceGroup\r\n",
-              "size": 4,
-              "queryType": 1,
-              "resourceType": "microsoft.resourcegraph/resources",
+              "version": "KqlParameterItem/1.0",
               "crossComponentResources": [
                 "{SubscriptionParam}"
               ],
-              "visualization": "table"
-            },
-            "customWidth": "50",
-            "conditionalVisibility": {
-              "parameterName": "debugVisible",
-              "comparison": "isEqualTo",
-              "value": "true"
-            },
-            "name": "ARG Machine List"
-          },
-          {
-            "type": 3,
-            "content": {
-              "version": "KqlItem/1.0",
-              "query": "let AllComputers = VMComputer\r\n| summarize arg_max(TimeGenerated,*) by Computer, _ResourceId\r\n| where isnotempty(_ResourceId)\r\n| where OperatingSystemFamily in ({OSTypeFilter:value}) and Computer matches regex @\"(?i){ServerNameFilter}\"\r\n    | distinct\r\n        Computer,\r\n        OperatingSystemFamily,\r\n        PhysicalMemoryMB,\r\n        Cpus,\r\n        _ResourceId,\r\n        AzureVmScaleSetName,\r\n        AzureSubscriptionId,\r\n        AzureResourceGroup;\r\n//\r\nlet ComputerIdList = AllComputers\r\n    | project _ResourceId;\r\n//\r\nlet HeartbeatHistory = Heartbeat \r\n    | where _ResourceId in (ComputerIdList)\r\n    | summarize arg_max(TimeGenerated, *) by _ResourceId\r\n    | project _ResourceId, LastHeartbeat = TimeGenerated\r\n    | extend SecondsSinceLastHeartbeat = (now() - LastHeartbeat)/1s;\r\n//\r\nlet CPUUsage = InsightsMetrics\r\n    | where _ResourceId in (ComputerIdList)\r\n    | where Namespace == \"Processor\"\r\n    | summarize CPUUsage = {AggregationType:value}(Val) by _ResourceId;\r\n//\r\nlet DiskFreeSpace = InsightsMetrics\r\n    | where _ResourceId in (ComputerIdList)\r\n    | where Namespace == \"LogicalDisk\"\r\n    | where Name == \"FreeSpacePercentage\"\r\n    | extend Instance = tostring(todynamic(Tags).[\"vm.azm.ms/mountId\"])\r\n    | join kind=inner AllComputers on _ResourceId\r\n    | extend OSSystemDrive = iif(OperatingSystemFamily =~ \"windows\", \"C:\", \"/\")\r\n    | where OSSystemDrive == Instance\r\n    | extend UsedSpacePercentage = 100-Val\r\n    | summarize OSDiskUsedSpacePercentage = {AggregationType:value}(UsedSpacePercentage) by _ResourceId, Instance;\r\n//\r\nlet MemoryUsage = InsightsMetrics\r\n    | where _ResourceId in (ComputerIdList)\r\n    | where Namespace == \"Memory\"\r\n    | extend MemorySizeMB = parse_json(Tags).['vm.azm.ms/memorySizeMB']\r\n    | extend PercentMemoryUsed = 100 * Val / MemorySizeMB\r\n    | summarize MemoryUsage = {AggregationType:value}(PercentMemoryUsed) by _ResourceId;\r\n//\r\nAllComputers\r\n| join kind=inner HeartbeatHistory on _ResourceId\r\n| join kind=inner CPUUsage on _ResourceId\r\n| join kind=inner MemoryUsage on _ResourceId\r\n| join kind=inner DiskFreeSpace on _ResourceId\r\n| extend ResourceGroup = strcat(\"/subscriptions/\", AzureSubscriptionId, \"/resourceGroups/\", AzureResourceGroup)\r\n| extend AzureVmScaleSetName = iif(AzureVmScaleSetName == \"\", \"VM\", AzureVmScaleSetName)\r\n| extend HeartbeatState = iif(SecondsSinceLastHeartbeat <= {HeartbeatThreshold},\"Healthy\",\"Unhealthy\")\r\n| extend PerfState = iif(CPUUsage <= {CPUThreshold} and MemoryUsage <= {MemThreshold} and OSDiskUsedSpacePercentage <= {SystemDriveThreshold}, \"Healthy\", \"Unhealthy\")\r\n| where {ThresholdFilter}\r\n| project\r\n    HeartbeatState,\r\n    PerfState,\r\n    _ResourceId,\r\n    AzureSubscriptionId,\r\n    ResourceGroup,\r\n    AzureVmScaleSetName,\r\n    Computer,\r\n    SecondsSinceLastHeartbeat,\r\n    OperatingSystemFamily,\r\n    CPUUsage,\r\n    MemoryUsage,\r\n    OSDiskUsedSpacePercentage\r\n\r\n",
-              "size": 4,
-              "timeContextFromParameter": "TimeRangeParam",
-              "queryType": 0,
-              "resourceType": "microsoft.operationalinsights/workspaces",
-              "crossComponentResources": [
-                "{WorkspaceParam}"
+              "parameters": [
+                {
+                  "id": "e0efe5b4-3984-428c-825e-ac620691f4ac",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "SelectedMachines",
+                  "type": 5,
+                  "isRequired": true,
+                  "multiSelect": true,
+                  "quote": "'",
+                  "delimiter": ",",
+                  "query": "resources  | where type in~ (\"microsoft.compute/virtualmachines\",\"microsoft.hybridcompute/machines\")\r\n| extend RG = strcat(\"/subscriptions/\",subscriptionId,\"/resourcegroups/\",resourceGroup)\r\n| where RG in~ ({ResourceGroup}) \r\n| where {MachineType}\r\n\r\n| project id = tolower(id), OSType = case(\r\n    type == \"microsoft.compute/virtualmachines\", properties.storageProfile.osDisk.osType,\r\n    type == \"microsoft.hybridcompute/machines\", properties.osName,\r\n    \"Unknown\"\r\n), MachineStatus = case(\r\n    type == \"microsoft.compute/virtualmachines\", properties.extended.instanceView.powerState.displayStatus,\r\n    type == \"microsoft.hybridcompute/machines\", properties.status,\r\n    \"Unknown\"\r\n)\r\n| where {AzureStatusFilter} and OSType in~ ({OSTypeFilter:value}) and id matches regex @\"(?i){ServerNameFilter}\"\r\n| distinct id",
+                  "crossComponentResources": [
+                    "{SubscriptionParam}"
+                  ],
+                  "typeSettings": {
+                    "additionalResourceOptions": [
+                      "value::all"
+                    ],
+                    "showDefault": false
+                  },
+                  "timeContext": {
+                    "durationMs": 0
+                  },
+                  "timeContextFromParameter": "TimeRangeParam",
+                  "defaultValue": "value::all",
+                  "queryType": 1,
+                  "resourceType": "microsoft.resourcegraph/resources"
+                },
+                {
+                  "id": "67fa59c6-8cf5-4925-8479-b35a0748640d",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "VMInsightsMainQuery",
+                  "type": 1,
+                  "isRequired": true,
+                  "typeSettings": {
+                    "multiLineText": true,
+                    "editorLanguage": "kql",
+                    "multiLineHeight": 10
+                  },
+                  "criteriaData": [
+                    {
+                      "criteriaContext": {
+                        "operator": "Default",
+                        "resultValType": "static",
+                        "resultVal": "let InsightsMetricsInfo = materialize(InsightsMetrics     | where Namespace in (\"Processor\", \"Memory\", \"LogicalDisk\", \"Network\") and Name in (\"UtilizationPercentage\", \"AvailableMB\", \"FreeSpacePercentage\", \"WriteBytesPerSecond\", \"ReadBytesPerSecond\")     | where _ResourceId in~ (ComputerList)); let CPUUsage = InsightsMetricsInfo     | where Namespace == \"Processor\" and Name == \"UtilizationPercentage\"     | summarize CPUUsage = {AggregationType:value}(Val) by _ResourceId; let MemoryUsage = InsightsMetricsInfo     | where Namespace == \"Memory\" and Name == \"AvailableMB\"     | extend MemorySizeMB = parse_json(Tags).['vm.azm.ms/memorySizeMB']     | extend PercentMemoryUsed = (1 - (Val / MemorySizeMB)) * 100     | summarize MemoryUsage = {AggregationType:value}(PercentMemoryUsed) by _ResourceId; let DiskUsedSpace = InsightsMetricsInfo     | where Namespace == \"LogicalDisk\"     | where Name == \"FreeSpacePercentage\"     | extend Instance = tostring(todynamic(Tags).[\"vm.azm.ms/mountId\"])     | where Instance == \"/\" or Instance =~ \"C:\"     | extend UsedSpacePercentage = 100 - Val     | summarize OSDiskUsedSpacePercentage = {AggregationType:value}(UsedSpacePercentage) by _ResourceId, Instance     | project-away Instance; let HeartbeatHistory = Heartbeat      | where _ResourceId in (ComputerList)     | summarize arg_max(TimeGenerated, *) by _ResourceId     | project _ResourceId, LastHeartbeat = TimeGenerated     | extend SecondsSinceLastHeartbeat = (now() - LastHeartbeat)/1s; let VMInsightsPerfData = CPUUsage     | join kind = leftouter MemoryUsage on _ResourceId     | join kind = leftouter DiskUsedSpace on _ResourceId     | join kind = leftouter HeartbeatHistory on _ResourceId     | extend _ResourceId = tolower(_ResourceId)     | project-away _ResourceId1, _ResourceId2, _ResourceId3    ;"
+                      }
+                    }
+                  ],
+                  "timeContext": {
+                    "durationMs": 0
+                  },
+                  "timeContextFromParameter": "TimeRangeParam"
+                }
               ],
-              "visualization": "table",
-              "gridSettings": {
-                "formatters": [
-                  {
-                    "columnMatch": "HeartbeatState",
-                    "formatter": 18,
-                    "formatOptions": {
-                      "thresholdsOptions": "icons",
-                      "thresholdsGrid": [
-                        {
-                          "operator": "==",
-                          "thresholdValue": "Healthy",
-                          "representation": "success",
-                          "text": ""
-                        },
-                        {
-                          "operator": "==",
-                          "thresholdValue": "Unhealthy",
-                          "representation": "critical",
-                          "text": ""
-                        },
-                        {
-                          "operator": "Default",
-                          "thresholdValue": null,
-                          "representation": "Unknown",
-                          "text": "{0}{1}"
-                        }
-                      ],
-                      "customColumnWidthSetting": "19ch"
-                    }
-                  },
-                  {
-                    "columnMatch": "PerfState",
-                    "formatter": 18,
-                    "formatOptions": {
-                      "thresholdsOptions": "icons",
-                      "thresholdsGrid": [
-                        {
-                          "operator": "==",
-                          "thresholdValue": "Healthy",
-                          "representation": "success",
-                          "text": ""
-                        },
-                        {
-                          "operator": "==",
-                          "thresholdValue": "Unhealthy",
-                          "representation": "critical",
-                          "text": ""
-                        },
-                        {
-                          "operator": "Default",
-                          "thresholdValue": null,
-                          "representation": "unknown",
-                          "text": "{0}{1}"
-                        }
-                      ],
-                      "customColumnWidthSetting": "16.1429ch"
-                    }
-                  },
-                  {
-                    "columnMatch": "AzureSubscriptionId",
-                    "formatter": 5
-                  },
-                  {
-                    "columnMatch": "ResourceGroup",
-                    "formatter": 14,
-                    "formatOptions": {
-                      "linkTarget": null,
-                      "showIcon": true
-                    }
-                  },
-                  {
-                    "columnMatch": "SecondsSinceLastHeartbeat",
-                    "formatter": 0,
-                    "numberFormat": {
-                      "unit": 24,
-                      "options": {
-                        "style": "decimal",
-                        "maximumFractionDigits": 0
-                      }
-                    }
-                  },
-                  {
-                    "columnMatch": "CPUUsage",
-                    "formatter": 8,
-                    "formatOptions": {
-                      "min": 0,
-                      "max": 100,
-                      "palette": "greenRed",
-                      "customColumnWidthSetting": "15ch"
-                    },
-                    "numberFormat": {
-                      "unit": 0,
-                      "options": {
-                        "style": "decimal",
-                        "maximumFractionDigits": 0
-                      }
-                    }
-                  },
-                  {
-                    "columnMatch": "MemoryUsage",
-                    "formatter": 8,
-                    "formatOptions": {
-                      "min": 0,
-                      "max": 100,
-                      "palette": "greenRed",
-                      "customColumnWidthSetting": "15ch"
-                    },
-                    "numberFormat": {
-                      "unit": 0,
-                      "options": {
-                        "style": "decimal",
-                        "maximumFractionDigits": 0
-                      }
-                    }
-                  },
-                  {
-                    "columnMatch": "OSDiskUsedSpacePercentage",
-                    "formatter": 8,
-                    "formatOptions": {
-                      "min": 0,
-                      "max": 100,
-                      "palette": "greenRed",
-                      "customColumnWidthSetting": "15ch"
-                    },
-                    "numberFormat": {
-                      "unit": 0,
-                      "options": {
-                        "style": "decimal",
-                        "maximumFractionDigits": 0
-                      }
-                    }
-                  },
-                  {
-                    "columnMatch": "LastHeartbeat",
-                    "formatter": 0,
-                    "numberFormat": {
-                      "unit": 24,
-                      "options": {
-                        "style": "decimal"
-                      }
-                    }
-                  },
-                  {
-                    "columnMatch": "AzureResourceGroup",
-                    "formatter": 14,
-                    "formatOptions": {
-                      "linkTarget": null,
-                      "showIcon": true
-                    }
-                  }
-                ],
-                "rowLimit": 1000,
-                "labelSettings": [
-                  {
-                    "columnId": "HeartbeatState",
-                    "label": "Disponibilidade"
-                  },
-                  {
-                    "columnId": "PerfState",
-                    "label": "Performance"
-                  },
-                  {
-                    "columnId": "_ResourceId",
-                    "label": "Recurso"
-                  },
-                  {
-                    "columnId": "AzureSubscriptionId",
-                    "label": "Subscription"
-                  },
-                  {
-                    "columnId": "ResourceGroup",
-                    "label": "Resource Group"
-                  },
-                  {
-                    "columnId": "AzureVmScaleSetName",
-                    "label": "VMSS Name"
-                  },
-                  {
-                    "columnId": "Computer",
-                    "label": "Computador"
-                  },
-                  {
-                    "columnId": "SecondsSinceLastHeartbeat",
-                    "label": "Último Heartbeat"
-                  },
-                  {
-                    "columnId": "OperatingSystemFamily",
-                    "label": "SO"
-                  },
-                  {
-                    "columnId": "CPUUsage",
-                    "label": "% CPU"
-                  },
-                  {
-                    "columnId": "MemoryUsage",
-                    "label": "% Mem"
-                  },
-                  {
-                    "columnId": "OSDiskUsedSpacePercentage",
-                    "label": "% OSDisk"
-                  }
-                ]
-              },
-              "sortBy": []
+              "style": "above",
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources"
             },
-            "customWidth": "50",
             "conditionalVisibility": {
               "parameterName": "debugVisible",
               "comparison": "isEqualTo",
               "value": "true"
             },
-            "name": "Main VM State Grid - Base"
+            "name": "Base Queries"
           },
           {
             "type": 12,
@@ -731,7 +605,7 @@
                   "type": 3,
                   "content": {
                     "version": "KqlItem/1.0",
-                    "query": "resources \r\n| where type =~ \"microsoft.compute/virtualmachines\" or type =~ \"microsoft.hybridcompute/machines\" \r\n| where resourceGroup in ({ResourceGroup})\r\n| where {MachineType} \r\n| project subscriptionId, resourceGroup, id, type, ARCState = properties.status, AZVMState = properties.extended.instanceView.powerState.displayStatus\r\n| extend MachineStatus = iif(type =~ \"microsoft.compute/virtualmachines\",AZVMState,ARCState)\r\n| where {AzureStatusFilter}\r\n| extend State = tostring(iif(MachineStatus in (\"Connected\",\"VM running\"),\"Healthy\",\"Unhealthy\"))\r\n| summarize VMs = count() by State\r\n\r\n",
+                    "query": "resources\r\n| where id in~ ({SelectedMachines})\r\n| project subscriptionId, resourceGroup, id, type, MachineStatus = case(\r\n    type == \"microsoft.compute/virtualmachines\", properties.extended.instanceView.powerState.displayStatus,\r\n    type == \"microsoft.hybridcompute/machines\", properties.status,\r\n    \"Unknown\"\r\n)\r\n| where {AzureStatusFilter}\r\n| extend State = tostring(iif(MachineStatus in (\"Connected\",\"VM running\"),\"Saudável\",\"Não saudável\"))\r\n| summarize VMs = count() by State\r\n\r\n",
                     "size": 4,
                     "title": "Status (Azure)",
                     "queryType": 1,
@@ -743,17 +617,17 @@
                     "chartSettings": {
                       "seriesLabelSettings": [
                         {
-                          "seriesName": "Healthy",
+                          "seriesName": "Saudável",
                           "color": "green"
                         },
                         {
-                          "seriesName": "Unhealthy",
+                          "seriesName": "Não saudável",
                           "color": "red"
                         }
                       ]
                     }
                   },
-                  "customWidth": "50",
+                  "customWidth": "33",
                   "showPin": false,
                   "name": "SummaryAzMerge"
                 },
@@ -761,9 +635,9 @@
                   "type": 3,
                   "content": {
                     "version": "KqlItem/1.0",
-                    "query": "resources \r\n| where type =~ \"microsoft.compute/virtualmachines\" or type =~ \"microsoft.hybridcompute/machines\" \r\n| where resourceGroup in ({ResourceGroup})\r\n| where {MachineType} \r\n| project subscriptionId, resourceGroup, id, type, ARCState = properties.status, AZVMState = properties.extended.instanceView.powerState.displayStatus\r\n| extend MachineStatus = iif(type =~ \"microsoft.compute/virtualmachines\",AZVMState,ARCState)\r\n| where {AzureStatusFilter}\r\n| summarize VMs = count() by type\r\n\r\n",
+                    "query": "resources\r\n| where id in~ ({SelectedMachines})\r\n| project subscriptionId, resourceGroup, id, type, MachineStatus = case(\r\n    type == \"microsoft.compute/virtualmachines\", properties.extended.instanceView.powerState.displayStatus,\r\n    type == \"microsoft.hybridcompute/machines\", properties.status,\r\n    \"Unknown\"\r\n)\r\n| where {AzureStatusFilter}\r\n| summarize VMs = count() by type\r\n\r\n\r\n",
                     "size": 4,
-                    "title": "Machine Type",
+                    "title": "Machine types",
                     "queryType": 1,
                     "resourceType": "microsoft.resourcegraph/resources",
                     "crossComponentResources": [
@@ -785,9 +659,41 @@
                       ]
                     }
                   },
-                  "customWidth": "50",
+                  "customWidth": "34",
                   "showPin": false,
                   "name": "Summary Machine Type"
+                },
+                {
+                  "type": 3,
+                  "content": {
+                    "version": "KqlItem/1.0",
+                    "query": "resources\r\n| where id in~ ({SelectedMachines})\r\n| project subscriptionId, resourceGroup, id, type, OSType = case(\r\n    type == \"microsoft.compute/virtualmachines\", tolower(properties.storageProfile.osDisk.osType),\r\n    type == \"microsoft.hybridcompute/machines\", tolower(properties.osName),\r\n    \"Unknown\"\r\n), MachineStatus = case(\r\n    type == \"microsoft.compute/virtualmachines\", properties.extended.instanceView.powerState.displayStatus,\r\n    type == \"microsoft.hybridcompute/machines\", properties.status,\r\n    \"Unknown\"\r\n)\r\n| where {AzureStatusFilter}\r\n| summarize VMs = count() by OSType\r\n\r\n",
+                    "size": 4,
+                    "title": "Operating System",
+                    "queryType": 1,
+                    "resourceType": "microsoft.resourcegraph/resources",
+                    "crossComponentResources": [
+                      "{SubscriptionParam}"
+                    ],
+                    "visualization": "piechart",
+                    "chartSettings": {
+                      "seriesLabelSettings": [
+                        {
+                          "seriesName": "microsoft.compute/virtualmachines",
+                          "label": "Azure VM",
+                          "color": "blue"
+                        },
+                        {
+                          "seriesName": "microsoft.hybridcompute/machines",
+                          "label": "ARC Server",
+                          "color": "purpleDark"
+                        }
+                      ]
+                    }
+                  },
+                  "customWidth": "33",
+                  "showPin": false,
+                  "name": "Summary OS Type"
                 }
               ]
             },
@@ -802,33 +708,20 @@
             }
           },
           {
-            "type": 1,
-            "content": {
-              "json": "#### Server list - click one line for details"
-            },
-            "name": "text - 8"
-          },
-          {
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "{\"version\":\"Merge/1.0\",\"merges\":[{\"id\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\",\"mergeType\":\"leftouter\",\"leftTable\":\"ARG Machine List\",\"rightTable\":\"Main VM State Grid - Base\",\"leftColumn\":\"id\",\"rightColumn\":\"_ResourceId\"}],\"projectRename\":[{\"originalName\":\"[ARG Machine List].MachineStatus\",\"mergedName\":\"MachineStatus\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].HeartbeatState\",\"mergedName\":\"Disponibilidade\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].PerfState\",\"mergedName\":\"Performance\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[ARG Machine List].id\",\"mergedName\":\"id\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[ARG Machine List].RG\",\"mergedName\":\"RG\",\"fromId\":\"unknown\"},{\"originalName\":\"[ARG Machine List].subscriptionId\",\"mergedName\":\"subscriptionId\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[ARG Machine List].resourceGroup\",\"mergedName\":\"resourceGroup\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].AzureVmScaleSetName\",\"mergedName\":\"VMSS Name\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].Computer\",\"mergedName\":\"Computador\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[ARG Machine List].type\",\"mergedName\":\"type\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].SecondsSinceLastHeartbeat\",\"mergedName\":\"Último Heartbeat\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].OperatingSystemFamily\",\"mergedName\":\"SO\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].CPUUsage\",\"mergedName\":\"% CPU\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].MemoryUsage\",\"mergedName\":\"% Mem\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].OSDiskUsedSpacePercentage\",\"mergedName\":\"% OSDisk\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].AzureSubscriptionId\"},{\"originalName\":\"[Main VM State Grid - Base]._ResourceId\"},{\"originalName\":\"[Main VM State Grid - Base].ResourceGroup\"}]}",
-              "size": 2,
-              "showRefreshButton": true,
-              "exportedParameters": [
-                {
-                  "fieldName": "id",
-                  "parameterName": "ResourceIDDrillDown",
-                  "parameterType": 1
-                },
-                {
-                  "fieldName": "Computador",
-                  "parameterName": "ComputerDrillDown",
-                  "parameterType": 1
-                }
-              ],
+              "query": "let ARGResources = arg(\"\").resources\r\n| where id in~ ({SelectedMachines})\r\n| project subscriptionId, resourceGroup, id = tolower(id), type, MachineStatus = case(\r\n    type == \"microsoft.compute/virtualmachines\", properties.extended.instanceView.powerState.displayStatus,\r\n    type == \"microsoft.hybridcompute/machines\", properties.status,\r\n    \"Unknown\"\r\n), OSType = case(\r\n    type == \"microsoft.compute/virtualmachines\", properties.storageProfile.osDisk.osType,\r\n    type == \"microsoft.hybridcompute/machines\", properties.osName,\r\n    \"Unknown\"\r\n)\r\n| extend MachineStatus = iff(isempty(MachineStatus),\"Unknown\",MachineStatus)\r\n| where {AzureStatusFilter}\r\n| extend RG = strcat(\"/subscriptions/\", subscriptionId, \"/resourceGroups/\", resourceGroup)\r\n| project-away resourceGroup;\r\nlet ComputerList = ARGResources | distinct id;\r\n{VMInsightsMainQuery}\r\nARGResources\r\n| join kind=leftouter VMInsightsPerfData on $left.id == $right._ResourceId\r\n| extend HeartbeatState = iif(SecondsSinceLastHeartbeat <= {HeartbeatThreshold},\"Healthy\",\"Unhealthy\")\r\n| extend PerfState = iif(CPUUsage <= {CPUThreshold} and MemoryUsage <= {MemThreshold} and OSDiskUsedSpacePercentage <= {SystemDriveThreshold}, \"Healthy\", \"Unhealthy\")\r\n| where {ThresholdFilter}\r\n| project\r\n    MachineStatus,\r\n    HeartbeatState,\r\n    PerfState,\r\n    id,\r\n    subscriptionId,\r\n    RG,\r\n    OSType,\r\n    SecondsSinceLastHeartbeat,\r\n    CPUUsage,\r\n    MemoryUsage,\r\n    OSDiskUsedSpacePercentage,Details = \"1\"\r\n\r\n",
+              "size": 0,
+              "showAnalytics": true,
+              "title": "VM List",
+              "timeContextFromParameter": "TimeRangeParam",
               "showExportToExcel": true,
-              "queryType": 7,
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{WorkspaceParam}"
+              ],
               "visualization": "table",
               "gridSettings": {
                 "formatters": [
@@ -873,7 +766,7 @@
                     }
                   },
                   {
-                    "columnMatch": "Disponibilidade",
+                    "columnMatch": "HeartbeatState",
                     "formatter": 18,
                     "formatOptions": {
                       "thresholdsOptions": "icons",
@@ -901,7 +794,7 @@
                     }
                   },
                   {
-                    "columnMatch": "Performance",
+                    "columnMatch": "PerfState",
                     "formatter": 18,
                     "formatOptions": {
                       "thresholdsOptions": "icons",
@@ -937,41 +830,22 @@
                   },
                   {
                     "columnMatch": "subscriptionId",
-                    "formatter": 5
-                  },
-                  {
-                    "columnMatch": "VMSS Name",
-                    "formatter": 0,
+                    "formatter": 15,
                     "formatOptions": {
-                      "customColumnWidthSetting": "20ch"
+                      "linkTarget": null,
+                      "showIcon": true,
+                      "customColumnWidthSetting": "22ch"
                     }
                   },
                   {
-                    "columnMatch": "Computador",
+                    "columnMatch": "RG",
                     "formatter": 0,
                     "formatOptions": {
-                      "customColumnWidthSetting": "25ch"
+                      "customColumnWidthSetting": "27.8571ch"
                     }
                   },
                   {
-                    "columnMatch": "type",
-                    "formatter": 5
-                  },
-                  {
-                    "columnMatch": "Último Heartbeat",
-                    "formatter": 0,
-                    "formatOptions": {
-                      "customColumnWidthSetting": "20ch"
-                    },
-                    "numberFormat": {
-                      "unit": 24,
-                      "options": {
-                        "style": "decimal"
-                      }
-                    }
-                  },
-                  {
-                    "columnMatch": "SO",
+                    "columnMatch": "OSType",
                     "formatter": 0,
                     "formatOptions": {
                       "customColumnWidthSetting": "9ch"
@@ -985,11 +859,24 @@
                     }
                   },
                   {
-                    "columnMatch": "% CPU",
+                    "columnMatch": "SecondsSinceLastHeartbeat",
+                    "formatter": 0,
+                    "formatOptions": {
+                      "customColumnWidthSetting": "20ch"
+                    },
+                    "numberFormat": {
+                      "unit": 24,
+                      "options": {
+                        "style": "decimal"
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "CPUUsage",
                     "formatter": 8,
                     "formatOptions": {
-                      "min": 0,
-                      "max": 100,
+                      "Min": 0,
+                      "Max": 100,
                       "palette": "greenRed",
                       "customColumnWidthSetting": "14ch"
                     },
@@ -1002,11 +889,11 @@
                     }
                   },
                   {
-                    "columnMatch": "% Mem",
+                    "columnMatch": "MemoryUsage",
                     "formatter": 8,
                     "formatOptions": {
-                      "min": 0,
-                      "max": 100,
+                      "Min": 0,
+                      "Max": 100,
                       "palette": "greenRed",
                       "customColumnWidthSetting": "14ch"
                     },
@@ -1019,11 +906,11 @@
                     }
                   },
                   {
-                    "columnMatch": "% OSDisk",
+                    "columnMatch": "OSDiskUsedSpacePercentage",
                     "formatter": 8,
                     "formatOptions": {
-                      "min": 0,
-                      "max": 100,
+                      "Min": 0,
+                      "Max": 100,
                       "palette": "greenRed",
                       "customColumnWidthSetting": "14ch"
                     },
@@ -1032,6 +919,43 @@
                       "options": {
                         "style": "decimal",
                         "maximumFractionDigits": 0
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "Details",
+                    "formatter": 7,
+                    "formatOptions": {
+                      "linkTarget": "WorkbookTemplate",
+                      "linkLabel": "Open",
+                      "workbookContext": {
+                        "componentIdSource": "workbook",
+                        "resourceIdsSource": "workbook",
+                        "templateIdSource": "static",
+                        "templateId": "ResourceIDWorkbookVMDetails",
+                        "typeSource": "workbook",
+                        "gallerySource": "workbook",
+                        "locationSource": "default",
+                        "workbookName": "VM Details",
+                        "passSpecificParams": true,
+                        "templateParameters": [
+                          {
+                            "name": "TimeRange",
+                            "source": "parameter",
+                            "value": "TimeRangeParam"
+                          },
+                          {
+                            "name": "Workspace",
+                            "source": "parameter",
+                            "value": "WorkspaceParam"
+                          },
+                          {
+                            "name": "VMResourceID",
+                            "source": "column",
+                            "value": "id"
+                          }
+                        ],
+                        "viewerMode": false
                       }
                     }
                   },
@@ -1040,12 +964,12 @@
                     "formatter": 5
                   }
                 ],
-                "rowLimit": 1000,
+                "rowLimit": 2000,
                 "filter": true,
                 "sortBy": [
                   {
-                    "itemKey": "$gen_heatmap_% CPU_11",
-                    "sortOrder": 2
+                    "itemKey": "$gen_thresholds_MachineStatus_0",
+                    "sortOrder": 1
                   }
                 ],
                 "labelSettings": [
@@ -1054,11 +978,11 @@
                     "label": "Status (Azure)"
                   },
                   {
-                    "columnId": "Disponibilidade",
+                    "columnId": "HeartbeatState",
                     "label": "Availability"
                   },
                   {
-                    "columnId": "Performance",
+                    "columnId": "PerfState",
                     "label": "Performance"
                   },
                   {
@@ -1066,647 +990,47 @@
                     "label": "Resource"
                   },
                   {
-                    "columnId": "RG",
-                    "label": "Resource Group"
-                  },
-                  {
                     "columnId": "subscriptionId",
                     "label": "Subscription"
                   },
                   {
-                    "columnId": "Computador",
-                    "label": "Computer"
+                    "columnId": "RG",
+                    "label": "Resource Group"
                   },
                   {
-                    "columnId": "type",
-                    "label": "Type"
+                    "columnId": "OSType",
+                    "label": "OS"
                   },
                   {
-                    "columnId": "Último Heartbeat",
+                    "columnId": "SecondsSinceLastHeartbeat",
                     "label": "Last Heartbeat"
                   },
                   {
-                    "columnId": "SO",
-                    "label": "OS"
+                    "columnId": "CPUUsage",
+                    "label": "% CPU"
+                  },
+                  {
+                    "columnId": "MemoryUsage",
+                    "label": "% Mem"
+                  },
+                  {
+                    "columnId": "OSDiskUsedSpacePercentage",
+                    "label": "% OSDisk"
+                  },
+                  {
+                    "columnId": "Details",
+                    "label": "Details"
                   }
                 ]
               },
               "sortBy": [
                 {
-                  "itemKey": "$gen_heatmap_% CPU_11",
-                  "sortOrder": 2
+                  "itemKey": "$gen_thresholds_MachineStatus_0",
+                  "sortOrder": 1
                 }
               ]
             },
-            "conditionalVisibility": {
-              "parameterName": "GridStyle",
-              "comparison": "isEqualTo",
-              "value": "flat"
-            },
-            "name": "Merge Grid - Flat"
-          },
-          {
-            "type": 3,
-            "content": {
-              "version": "KqlItem/1.0",
-              "query": "{\"version\":\"Merge/1.0\",\"merges\":[{\"id\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\",\"mergeType\":\"leftouter\",\"leftTable\":\"ARG Machine List\",\"rightTable\":\"Main VM State Grid - Base\",\"leftColumn\":\"id\",\"rightColumn\":\"_ResourceId\"}],\"projectRename\":[{\"originalName\":\"[ARG Machine List].MachineStatus\",\"mergedName\":\"MachineStatus\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].HeartbeatState\",\"mergedName\":\"Disponibilidade\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].PerfState\",\"mergedName\":\"Performance\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[ARG Machine List].id\",\"mergedName\":\"id\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[ARG Machine List].RG\",\"mergedName\":\"RG\",\"fromId\":\"unknown\"},{\"originalName\":\"[ARG Machine List].subscriptionId\",\"mergedName\":\"subscriptionId\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[ARG Machine List].resourceGroup\",\"mergedName\":\"resourceGroup\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].AzureVmScaleSetName\",\"mergedName\":\"VMSS Name\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].Computer\",\"mergedName\":\"Computador\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[ARG Machine List].type\",\"mergedName\":\"type\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].SecondsSinceLastHeartbeat\",\"mergedName\":\"Último Heartbeat\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].OperatingSystemFamily\",\"mergedName\":\"SO\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].CPUUsage\",\"mergedName\":\"% CPU\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].MemoryUsage\",\"mergedName\":\"% Mem\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].OSDiskUsedSpacePercentage\",\"mergedName\":\"% OSDisk\",\"fromId\":\"d88fea0a-0082-497e-bff5-8acd1bdc109a\"},{\"originalName\":\"[Main VM State Grid - Base].AzureSubscriptionId\"},{\"originalName\":\"[Main VM State Grid - Base]._ResourceId\"},{\"originalName\":\"[Main VM State Grid - Base].ResourceGroup\"}]}",
-              "size": 2,
-              "showRefreshButton": true,
-              "exportedParameters": [
-                {
-                  "fieldName": "id",
-                  "parameterName": "ResourceIDDrillDown",
-                  "parameterType": 1
-                },
-                {
-                  "fieldName": "Computador",
-                  "parameterName": "ComputerDrillDown",
-                  "parameterType": 1
-                }
-              ],
-              "showExportToExcel": true,
-              "queryType": 7,
-              "visualization": "table",
-              "gridSettings": {
-                "formatters": [
-                  {
-                    "columnMatch": "$gen_group",
-                    "formatter": 13,
-                    "formatOptions": {
-                      "linkTarget": null,
-                      "showIcon": true
-                    }
-                  },
-                  {
-                    "columnMatch": "Subscription",
-                    "formatter": 13,
-                    "formatOptions": {
-                      "linkTarget": null,
-                      "showIcon": true
-                    }
-                  },
-                  {
-                    "columnMatch": "MachineStatus",
-                    "formatter": 18,
-                    "formatOptions": {
-                      "thresholdsOptions": "icons",
-                      "thresholdsGrid": [
-                        {
-                          "operator": "==",
-                          "thresholdValue": "VM running",
-                          "representation": "success",
-                          "text": "{0}{1}"
-                        },
-                        {
-                          "operator": "==",
-                          "thresholdValue": "Connected",
-                          "representation": "success",
-                          "text": "{0}{1}"
-                        },
-                        {
-                          "operator": "==",
-                          "thresholdValue": "VM deallocated",
-                          "representation": "critical",
-                          "text": "{0}{1}"
-                        },
-                        {
-                          "operator": "==",
-                          "thresholdValue": "Disconnected",
-                          "representation": "critical",
-                          "text": "{0}{1}"
-                        },
-                        {
-                          "operator": "Default",
-                          "thresholdValue": null,
-                          "representation": "unknown",
-                          "text": "{0}{1}"
-                        }
-                      ],
-                      "customColumnWidthSetting": "20.7143ch"
-                    }
-                  },
-                  {
-                    "columnMatch": "Disponibilidade",
-                    "formatter": 18,
-                    "formatOptions": {
-                      "thresholdsOptions": "icons",
-                      "thresholdsGrid": [
-                        {
-                          "operator": "==",
-                          "thresholdValue": "Healthy",
-                          "representation": "success",
-                          "text": ""
-                        },
-                        {
-                          "operator": "==",
-                          "thresholdValue": "Unhealthy",
-                          "representation": "4",
-                          "text": ""
-                        },
-                        {
-                          "operator": "Default",
-                          "thresholdValue": null,
-                          "representation": "unknown",
-                          "text": "{0}{1}"
-                        }
-                      ],
-                      "customColumnWidthSetting": "19.1429ch"
-                    }
-                  },
-                  {
-                    "columnMatch": "Performance",
-                    "formatter": 18,
-                    "formatOptions": {
-                      "thresholdsOptions": "icons",
-                      "thresholdsGrid": [
-                        {
-                          "operator": "==",
-                          "thresholdValue": "Healthy",
-                          "representation": "success",
-                          "text": ""
-                        },
-                        {
-                          "operator": "==",
-                          "thresholdValue": "Unhealthy",
-                          "representation": "4",
-                          "text": ""
-                        },
-                        {
-                          "operator": "Default",
-                          "thresholdValue": null,
-                          "representation": "unknown",
-                          "text": "{0}{1}"
-                        }
-                      ],
-                      "customColumnWidthSetting": "17.2857ch"
-                    }
-                  },
-                  {
-                    "columnMatch": "id",
-                    "formatter": 0,
-                    "formatOptions": {
-                      "customColumnWidthSetting": "19.1429ch"
-                    }
-                  },
-                  {
-                    "columnMatch": "RG",
-                    "formatter": 5
-                  },
-                  {
-                    "columnMatch": "subscriptionId",
-                    "formatter": 5
-                  },
-                  {
-                    "columnMatch": "VMSS Name",
-                    "formatter": 5,
-                    "formatOptions": {
-                      "customColumnWidthSetting": "20ch"
-                    }
-                  },
-                  {
-                    "columnMatch": "Computador",
-                    "formatter": 0,
-                    "formatOptions": {
-                      "customColumnWidthSetting": "25ch"
-                    }
-                  },
-                  {
-                    "columnMatch": "type",
-                    "formatter": 5
-                  },
-                  {
-                    "columnMatch": "Último Heartbeat",
-                    "formatter": 0,
-                    "formatOptions": {
-                      "customColumnWidthSetting": "20ch"
-                    },
-                    "numberFormat": {
-                      "unit": 24,
-                      "options": {
-                        "style": "decimal"
-                      }
-                    }
-                  },
-                  {
-                    "columnMatch": "SO",
-                    "formatter": 0,
-                    "formatOptions": {
-                      "customColumnWidthSetting": "9ch"
-                    },
-                    "numberFormat": {
-                      "unit": 0,
-                      "options": {
-                        "style": "decimal",
-                        "maximumFractionDigits": 0
-                      }
-                    }
-                  },
-                  {
-                    "columnMatch": "% CPU",
-                    "formatter": 8,
-                    "formatOptions": {
-                      "min": 0,
-                      "max": 100,
-                      "palette": "greenRed",
-                      "customColumnWidthSetting": "14ch"
-                    },
-                    "numberFormat": {
-                      "unit": 0,
-                      "options": {
-                        "style": "decimal",
-                        "maximumFractionDigits": 0
-                      }
-                    }
-                  },
-                  {
-                    "columnMatch": "% Mem",
-                    "formatter": 8,
-                    "formatOptions": {
-                      "min": 0,
-                      "max": 100,
-                      "palette": "greenRed",
-                      "customColumnWidthSetting": "14ch"
-                    },
-                    "numberFormat": {
-                      "unit": 0,
-                      "options": {
-                        "style": "decimal",
-                        "maximumFractionDigits": 0
-                      }
-                    }
-                  },
-                  {
-                    "columnMatch": "% OSDisk",
-                    "formatter": 8,
-                    "formatOptions": {
-                      "min": 0,
-                      "max": 100,
-                      "palette": "greenRed",
-                      "customColumnWidthSetting": "14ch"
-                    },
-                    "numberFormat": {
-                      "unit": 0,
-                      "options": {
-                        "style": "decimal",
-                        "maximumFractionDigits": 0
-                      }
-                    }
-                  },
-                  {
-                    "columnMatch": "resourceGroup",
-                    "formatter": 5
-                  }
-                ],
-                "rowLimit": 1000,
-                "filter": true,
-                "hierarchySettings": {
-                  "treeType": 1,
-                  "groupBy": [
-                    "subscriptionId",
-                    "RG",
-                    "VMSS Name"
-                  ],
-                  "expandTopLevel": true
-                },
-                "labelSettings": [
-                  {
-                    "columnId": "MachineStatus",
-                    "label": "Status (Azure)"
-                  },
-                  {
-                    "columnId": "Disponibilidade",
-                    "label": "Availability"
-                  },
-                  {
-                    "columnId": "id",
-                    "label": "Resource"
-                  },
-                  {
-                    "columnId": "RG",
-                    "label": "Resource Group"
-                  },
-                  {
-                    "columnId": "subscriptionId",
-                    "label": "Subscription"
-                  },
-                  {
-                    "columnId": "Computador",
-                    "label": "Computer"
-                  },
-                  {
-                    "columnId": "type",
-                    "label": "Type"
-                  },
-                  {
-                    "columnId": "Último Heartbeat",
-                    "label": "Last Heartbeat"
-                  },
-                  {
-                    "columnId": "SO",
-                    "label": "OS"
-                  }
-                ]
-              },
-              "sortBy": []
-            },
-            "conditionalVisibility": {
-              "parameterName": "GridStyle",
-              "comparison": "isEqualTo",
-              "value": "hierarchy"
-            },
-            "showPin": false,
-            "name": "Merge Grid - Hierarchy"
-          },
-          {
-            "type": 12,
-            "content": {
-              "version": "NotebookGroup/1.0",
-              "groupType": "editable",
-              "items": [
-                {
-                  "type": 1,
-                  "content": {
-                    "json": "## Details for the server {ComputerDrillDown}"
-                  },
-                  "name": "text - 0"
-                },
-                {
-                  "type": 3,
-                  "content": {
-                    "version": "KqlItem/1.0",
-                    "query": "InsightsMetrics\r\n| where _ResourceId =~ \"{ResourceIDDrillDown}\"\r\n| where Namespace in ('Processor','Memory','LogicalDisk')\r\n| where Name in ('UtilizationPercentage','AvailableMB','FreeSpacePercentage')\r\n| extend MemorySizeMB = parse_json(Tags).['vm.azm.ms/memorySizeMB']\r\n| extend PercentMemoryUsed = 100 * Val / MemorySizeMB\r\n| extend Metric = case(Namespace == \"Processor\",toint(Val),Namespace == \"Memory\",toint(100 * Val/MemorySizeMB), Namespace == \"LogicalDisk\",toint(100-Val),4)\r\n| extend DiskInstance = iif(Namespace == \"LogicalDisk\",tostring(todynamic(Tags).[\"vm.azm.ms/mountId\"]),\"N/A\")\r\n| where DiskInstance == \"C:\" or DiskInstance == \"/\" or DiskInstance == \"N/A\"\r\n| extend Counter = case(Namespace == \"Processor\",\"Processor\",Namespace == \"Memory\",\"Memory\", Namespace == \"LogicalDisk\",\"SystemDrive (C: or /)\",\"N/A\")\r\n| summarize {AggregationType:value}(Metric) by Counter, bin(TimeGenerated,{TimeRangeParam:grain})",
-                    "size": 1,
-                    "aggregation": 5,
-                    "showAnnotations": true,
-                    "title": "CPU, Memory and SystemDrive - Timeline",
-                    "timeContextFromParameter": "TimeRangeParam",
-                    "queryType": 0,
-                    "resourceType": "microsoft.operationalinsights/workspaces",
-                    "crossComponentResources": [
-                      "{WorkspaceParam}"
-                    ],
-                    "visualization": "timechart",
-                    "chartSettings": {
-                      "ySettings": {
-                        "min": 0,
-                        "max": 100
-                      }
-                    }
-                  },
-                  "name": "Overview Perf Timeline",
-                  "styleSettings": {
-                    "showBorder": true
-                  }
-                },
-                {
-                  "type": 3,
-                  "content": {
-                    "version": "KqlItem/1.0",
-                    "query": "InsightsMetrics\r\n| where _ResourceId =~ \"{ResourceIDDrillDown}\"\r\n| where Namespace == \"LogicalDisk\"\r\n| extend Instance = tostring(todynamic(Tags).[\"vm.azm.ms/mountId\"])\r\n| project Instance, Name, Val\r\n| evaluate pivot(Name,{AggregationType:value}(Val),Instance)",
-                    "size": 3,
-                    "showAnalytics": true,
-                    "title": "Disk Information - scroll sideways to see all",
-                    "timeContextFromParameter": "TimeRangeParam",
-                    "showExportToExcel": true,
-                    "queryType": 0,
-                    "resourceType": "microsoft.operationalinsights/workspaces",
-                    "crossComponentResources": [
-                      "{WorkspaceParam}"
-                    ],
-                    "visualization": "table",
-                    "gridSettings": {
-                      "formatters": [
-                        {
-                          "columnMatch": "BytesPerSecond",
-                          "formatter": 8,
-                          "formatOptions": {
-                            "palette": "blue"
-                          },
-                          "numberFormat": {
-                            "unit": 2,
-                            "options": {
-                              "style": "decimal"
-                            }
-                          }
-                        },
-                        {
-                          "columnMatch": "FreeSpaceMB",
-                          "formatter": 8,
-                          "formatOptions": {
-                            "palette": "blue"
-                          },
-                          "numberFormat": {
-                            "unit": 4,
-                            "options": {
-                              "style": "decimal"
-                            }
-                          }
-                        },
-                        {
-                          "columnMatch": "FreeSpacePercentage",
-                          "formatter": 8,
-                          "formatOptions": {
-                            "min": 0,
-                            "max": 100,
-                            "palette": "redGreen"
-                          },
-                          "numberFormat": {
-                            "unit": 0,
-                            "options": {
-                              "style": "decimal",
-                              "maximumFractionDigits": 0
-                            }
-                          }
-                        },
-                        {
-                          "columnMatch": "ReadBytesPerSecond",
-                          "formatter": 8,
-                          "formatOptions": {
-                            "palette": "blue"
-                          },
-                          "numberFormat": {
-                            "unit": 2,
-                            "options": {
-                              "style": "decimal"
-                            }
-                          }
-                        },
-                        {
-                          "columnMatch": "ReadLatencyMs",
-                          "formatter": 8,
-                          "formatOptions": {
-                            "palette": "blue"
-                          },
-                          "numberFormat": {
-                            "unit": 23,
-                            "options": {
-                              "style": "decimal"
-                            }
-                          }
-                        },
-                        {
-                          "columnMatch": "ReadsPerSecond",
-                          "formatter": 8,
-                          "formatOptions": {
-                            "palette": "blue"
-                          }
-                        },
-                        {
-                          "columnMatch": "TransferLatencyMs",
-                          "formatter": 8,
-                          "formatOptions": {
-                            "palette": "blue"
-                          },
-                          "numberFormat": {
-                            "unit": 23,
-                            "options": {
-                              "style": "decimal"
-                            }
-                          }
-                        },
-                        {
-                          "columnMatch": "TransfersPerSecond",
-                          "formatter": 8,
-                          "formatOptions": {
-                            "palette": "blue"
-                          }
-                        },
-                        {
-                          "columnMatch": "WriteBytesPerSecond",
-                          "formatter": 8,
-                          "formatOptions": {
-                            "palette": "blue"
-                          },
-                          "numberFormat": {
-                            "unit": 2,
-                            "options": {
-                              "style": "decimal"
-                            }
-                          }
-                        },
-                        {
-                          "columnMatch": "WriteLatencyMs",
-                          "formatter": 8,
-                          "formatOptions": {
-                            "palette": "blue"
-                          },
-                          "numberFormat": {
-                            "unit": 23,
-                            "options": {
-                              "style": "decimal"
-                            }
-                          }
-                        },
-                        {
-                          "columnMatch": "WritesPerSecond",
-                          "formatter": 8,
-                          "formatOptions": {
-                            "palette": "blue"
-                          }
-                        }
-                      ]
-                    }
-                  },
-                  "name": "Disk Counters Drill down query"
-                },
-                {
-                  "type": 3,
-                  "content": {
-                    "version": "KqlItem/1.0",
-                    "query": "InsightsMetrics\r\n| where _ResourceId =~ \"{ResourceIDDrillDown}\"\r\n| where Namespace == \"Network\"\r\n| extend Instance = tostring(todynamic(Tags).[\"vm.azm.ms/networkDeviceId\"])\r\n| project Instance, Name, Val\r\n| evaluate pivot(Name,{AggregationType:value}(Val),Instance)\r\n",
-                    "size": 3,
-                    "showAnalytics": true,
-                    "title": "Network Counters",
-                    "timeContextFromParameter": "TimeRangeParam",
-                    "showExportToExcel": true,
-                    "queryType": 0,
-                    "resourceType": "microsoft.operationalinsights/workspaces",
-                    "crossComponentResources": [
-                      "{WorkspaceParam}"
-                    ],
-                    "visualization": "table",
-                    "gridSettings": {
-                      "formatters": [
-                        {
-                          "columnMatch": "ReadBytesPerSecond",
-                          "formatter": 8,
-                          "formatOptions": {
-                            "palette": "blue"
-                          },
-                          "numberFormat": {
-                            "unit": 2,
-                            "options": {
-                              "style": "decimal"
-                            }
-                          }
-                        },
-                        {
-                          "columnMatch": "WriteBytesPerSecond",
-                          "formatter": 8,
-                          "formatOptions": {
-                            "palette": "blue"
-                          },
-                          "numberFormat": {
-                            "unit": 2,
-                            "options": {
-                              "style": "decimal"
-                            }
-                          }
-                        }
-                      ]
-                    }
-                  },
-                  "name": "Network Info"
-                },
-                {
-                  "type": 3,
-                  "content": {
-                    "version": "KqlItem/1.0",
-                    "query": "VMComputer\r\n| where _ResourceId =~ \"{ResourceIDDrillDown}\"\r\n| summarize arg_max(TimeGenerated, *) by _ResourceId \r\n| evaluate narrow()\r\n| project-away Row\r\n",
-                    "size": 0,
-                    "title": "VM Details",
-                    "timeContext": {
-                      "durationMs": 86400000
-                    },
-                    "showExportToExcel": true,
-                    "queryType": 0,
-                    "resourceType": "microsoft.operationalinsights/workspaces",
-                    "crossComponentResources": [
-                      "{WorkspaceParam}"
-                    ],
-                    "visualization": "table",
-                    "gridSettings": {
-                      "formatters": [
-                        {
-                          "columnMatch": "Value",
-                          "formatter": 1,
-                          "formatOptions": {
-                            "customColumnWidthSetting": "125ch"
-                          }
-                        }
-                      ],
-                      "filter": true,
-                      "labelSettings": [
-                        {
-                          "columnId": "Column",
-                          "label": "Propriedade"
-                        },
-                        {
-                          "columnId": "Value",
-                          "label": "Valor"
-                        }
-                      ]
-                    }
-                  },
-                  "name": "VM Details"
-                }
-              ]
-            },
-            "conditionalVisibility": {
-              "parameterName": "ResourceIDDrillDown",
-              "comparison": "isNotEqualTo"
-            },
-            "name": "SelectedServersDetails"
+            "name": "Main Grid - Flat"
           }
         ]
       },
@@ -1739,24 +1063,25 @@
                     "additionalResourceOptions": [],
                     "showDefault": false
                   },
-                  "jsonData": "[{\"value\":\"avg\",\"label\":\"avg\",\"selected\":true},\r\n{\"value\":\"max\",\"label\":\"max\"},\r\n{\"value\":\"min\",\"label\":\"min\"}]",
+                  "jsonData": "[{\"value\":\"avg\",\"label\":\"Média\",\"selected\":true},\r\n{\"value\":\"max\",\"label\":\"Máximo\"},\r\n{\"value\":\"min\",\"label\":\"Mínimo\"}]",
                   "timeContext": {
                     "durationMs": 86400000
                   },
-                  "value": "max"
+                  "value": "Max"
                 },
                 {
                   "id": "efb3b066-84ab-4b90-884a-6bafae04e3d6",
                   "version": "KqlParameterItem/1.0",
                   "name": "OSTypeFilter",
-                  "label": "OS",
+                  "label": "Operating System",
                   "type": 10,
                   "isRequired": true,
+                  "isHiddenWhenLocked": true,
                   "typeSettings": {
                     "additionalResourceOptions": [],
                     "showDefault": false
                   },
-                  "jsonData": "[\r\n    {\"value\":\"'windows'\",\"label\":\"Windows\"},\r\n    {\"value\":\"'linux'\",\"label\":\"Linux\"},\r\n    {\"value\":\"'windows','linux'\",\"label\":\"All\",\"selected\":true}\r\n]",
+                  "jsonData": "[\r\n    {\"value\":\"'windows'\",\"label\":\"Windows\"},\r\n    {\"value\":\"'linux'\",\"label\":\"Linux\"},\r\n    {\"value\":\"'windows','linux'\",\"label\":\"Todos\",\"selected\":true}\r\n]",
                   "timeContext": {
                     "durationMs": 86400000
                   }
@@ -1765,9 +1090,9 @@
                   "id": "ace2a32d-4ac9-4623-adb1-4c23678e57b1",
                   "version": "KqlParameterItem/1.0",
                   "name": "ServerNameFilter",
-                  "label": "Server Name Filter",
+                  "label": "Server Filter",
                   "type": 1,
-                  "description": "Uses RegEx syntax for filtering servers. Use .* for all",
+                  "description": "Uses RegEx syntax to filter servers displayed by name - Use .* for all",
                   "isRequired": true,
                   "value": ".*",
                   "timeContext": {
@@ -1797,7 +1122,7 @@
                   "type": 3,
                   "content": {
                     "version": "KqlItem/1.0",
-                    "query": "let AllComputers = VMComputer\r\n| where OperatingSystemFamily in ({OSTypeFilter:value}) and Computer matches regex @\"(?i){ServerNameFilter}\"\r\n    | distinct\r\n        Computer,\r\n        _ResourceId;\r\nAllComputers\r\n| order by Computer asc",
+                    "query": "let AllComputers = InsightsMetrics\r\n| where _ResourceId matches regex @\"(?i){ServerNameFilter}\"\r\n    | distinct\r\n        Computer,\r\n        _ResourceId;\r\nAllComputers\r\n| order by Computer asc",
                     "size": 2,
                     "timeContextFromParameter": "TimeRangeParam",
                     "exportMultipleValues": true,
@@ -1844,6 +1169,7 @@
                           "formatter": 5
                         }
                       ],
+                      "rowLimit": 2000,
                       "filter": true
                     }
                   },
@@ -1914,7 +1240,7 @@
                       {
                         "type": 1,
                         "content": {
-                          "json": "### Resources with most usage - top 5"
+                          "json": "### Recursos com maior utilização - top 5"
                         },
                         "name": "text - 3"
                       },
@@ -1938,8 +1264,8 @@
                                 "columnMatch": "Metric",
                                 "formatter": 8,
                                 "formatOptions": {
-                                  "min": 0,
-                                  "max": 100,
+                                  "Min": 0,
+                                  "Max": 100,
                                   "palette": "greenRed",
                                   "customColumnWidthSetting": "15ch"
                                 },
@@ -1990,8 +1316,8 @@
                                 "columnMatch": "Metric",
                                 "formatter": 8,
                                 "formatOptions": {
-                                  "min": 0,
-                                  "max": 100,
+                                  "Min": 0,
+                                  "Max": 100,
                                   "palette": "greenRed",
                                   "customColumnWidthSetting": "15ch"
                                 },
@@ -2028,7 +1354,7 @@
                           "version": "KqlItem/1.0",
                           "query": "InsightsMetrics\r\n| where isnotempty(_ResourceId)\r\n| where {ServerPerfFilter}\r\n| where Namespace == \"LogicalDisk\" and Name == 'FreeSpacePercentage'\r\n| extend Instance = tostring(todynamic(Tags).[\"vm.azm.ms/mountId\"])\r\n| extend UsedSpace = toint(100 - Val)\r\n| summarize Metric = {AggregationType}(UsedSpace) by _ResourceId, Instance\r\n| top 5 by Metric",
                           "size": 1,
-                          "title": "Disk",
+                          "title": "Disks",
                           "timeContextFromParameter": "TimeRangeParam",
                           "queryType": 0,
                           "resourceType": "microsoft.operationalinsights/workspaces",
@@ -2042,8 +1368,8 @@
                                 "columnMatch": "Metric",
                                 "formatter": 8,
                                 "formatOptions": {
-                                  "min": 0,
-                                  "max": 100,
+                                  "Min": 0,
+                                  "Max": 100,
                                   "palette": "greenRed",
                                   "customColumnWidthSetting": "15ch"
                                 },
@@ -2087,7 +1413,7 @@
                       {
                         "type": 1,
                         "content": {
-                          "json": "### Resources with least usage - bottom 5"
+                          "json": "### Recursos com menor utilização - bottom 5"
                         },
                         "name": "text - 3"
                       },
@@ -2111,8 +1437,8 @@
                                 "columnMatch": "Metric",
                                 "formatter": 8,
                                 "formatOptions": {
-                                  "min": 0,
-                                  "max": 100,
+                                  "Min": 0,
+                                  "Max": 100,
                                   "palette": "greenRed",
                                   "customColumnWidthSetting": "15ch"
                                 },
@@ -2163,8 +1489,8 @@
                                 "columnMatch": "Metric",
                                 "formatter": 8,
                                 "formatOptions": {
-                                  "min": 0,
-                                  "max": 100,
+                                  "Min": 0,
+                                  "Max": 100,
                                   "palette": "greenRed",
                                   "customColumnWidthSetting": "15ch"
                                 },
@@ -2201,7 +1527,7 @@
                           "version": "KqlItem/1.0",
                           "query": "InsightsMetrics\r\n| where isnotempty(_ResourceId)\r\n| where {ServerPerfFilter}\r\n| where Namespace == \"LogicalDisk\" and Name == 'FreeSpacePercentage'\r\n| extend Instance = tostring(todynamic(Tags).[\"vm.azm.ms/mountId\"])\r\n| extend UsedSpace = toint(100 - Val)\r\n| summarize Metric = {AggregationType}(UsedSpace) by _ResourceId, Instance\r\n| top 5 by Metric asc",
                           "size": 1,
-                          "title": "Disk",
+                          "title": "Disks",
                           "timeContextFromParameter": "TimeRangeParam",
                           "queryType": 0,
                           "resourceType": "microsoft.operationalinsights/workspaces",
@@ -2215,8 +1541,8 @@
                                 "columnMatch": "Metric",
                                 "formatter": 8,
                                 "formatOptions": {
-                                  "min": 0,
-                                  "max": 100,
+                                  "Min": 0,
+                                  "Max": 100,
                                   "palette": "greenRed",
                                   "customColumnWidthSetting": "15ch"
                                 },
@@ -2255,7 +1581,7 @@
                   "type": 3,
                   "content": {
                     "version": "KqlItem/1.0",
-                    "query": "InsightsMetrics\r\n| where {ServerPerfFilter}\r\n| where Namespace == \"Processor\" and Name == 'UtilizationPercentage'\r\n| summarize avg = avg(Val), Max = max(Val), Min = min(Val) by  bin(TimeGenerated,{TimeRangeParam:grain})\r\n",
+                    "query": "InsightsMetrics\r\n| where {ServerPerfFilter}\r\n| where Namespace == \"Processor\" and Name == 'UtilizationPercentage'\r\n| summarize Media = avg(Val), Max = max(Val), Min = min(Val) by  bin(TimeGenerated,{TimeRangeParam:grain})\r\n",
                     "size": 1,
                     "aggregation": 5,
                     "showAnnotations": true,
@@ -2294,7 +1620,7 @@
                   "type": 3,
                   "content": {
                     "version": "KqlItem/1.0",
-                    "query": "InsightsMetrics\r\n| where {ServerPerfFilter}\r\n| where Namespace == \"Memory\" and Name == 'AvailableMB'\r\n| extend MemorySizeMB = parse_json(Tags).['vm.azm.ms/memorySizeMB']\r\n| extend PercentUsedMemory = toint(100 * Val/MemorySizeMB)\r\n| summarize avg = avg(PercentUsedMemory) , Max = max(PercentUsedMemory), Min = min(PercentUsedMemory) by bin(TimeGenerated,{TimeRangeParam:grain})\r\n",
+                    "query": "InsightsMetrics\r\n| where {ServerPerfFilter}\r\n| where Namespace == \"Memory\" and Name == 'AvailableMB'\r\n| extend MemorySizeMB = parse_json(Tags).['vm.azm.ms/memorySizeMB']\r\n| extend PercentUsedMemory = toint(100 * Val/MemorySizeMB)\r\n| summarize Media = avg(PercentUsedMemory) , Max = max(PercentUsedMemory), Min = min(PercentUsedMemory) by bin(TimeGenerated,{TimeRangeParam:grain})\r\n",
                     "size": 1,
                     "aggregation": 5,
                     "showAnnotations": true,

@@ -4,7 +4,7 @@
     {
       "type": 1,
       "content": {
-        "json": "# Disponibilidade e Performance - VM Insights\r\n## Servidores Windows e Linux"
+        "json": "# Availability and Performance - VM Insights\r\n## Windows and Linux Servers"
       },
       "name": "text - 2"
     },
