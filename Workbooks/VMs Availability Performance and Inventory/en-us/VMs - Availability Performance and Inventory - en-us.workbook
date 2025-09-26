@@ -13,7 +13,7 @@
       "content": {
         "version": "KqlParameterItem/1.0",
         "crossComponentResources": [
-          "{LAWSubscription}"
+          "value::tenant"
         ],
         "parameters": [
           {
@@ -24,7 +24,7 @@
             "type": 4,
             "isRequired": true,
             "value": {
-              "durationMs": 86400000
+              "durationMs": 2592000000
             },
             "typeSettings": {
               "selectableValues": [
@@ -127,6 +127,7 @@
             ]
           },
           {
+            "id": "d63765d2-31c3-42bc-bfc5-42323e442558",
             "version": "KqlParameterItem/1.0",
             "name": "LAWSubscription",
             "label": "Subscription (Workspace)",
@@ -135,7 +136,7 @@
             "multiSelect": true,
             "quote": "'",
             "delimiter": ",",
-            "query": "Resources\r\n| where type in~ (\"microsoft.compute/virtualmachines\",\"microsoft.hybridcompute/machines\")\r\n| summarize Count = count() by subscriptionId\r\n| order by Count desc\r\n| extend Rank = row_number()\r\n| project value = subscriptionId, label = subscriptionId, selected = Rank == 1",
+            "query": "Resources\r\n| where type in~ (\"microsoft.operationalinsights/workspaces\")\r\n| summarize Count = count() by subscriptionId\r\n| order by Count desc\r\n| extend Rank = row_number()\r\n| project value = subscriptionId, label = subscriptionId, selected = Rank == 1",
             "crossComponentResources": [
               "value::tenant"
             ],
@@ -149,10 +150,10 @@
               "durationMs": 86400000
             },
             "queryType": 1,
-            "resourceType": "microsoft.resources/tenants",
-            "id": "d63765d2-31c3-42bc-bfc5-42323e442558"
+            "resourceType": "microsoft.resources/tenants"
           },
           {
+            "id": "76c52f14-3cde-4d37-bfdf-86e67e787e4a",
             "version": "KqlParameterItem/1.0",
             "name": "LAWRG",
             "label": "Resource Group (Workspace)",
@@ -161,7 +162,7 @@
             "multiSelect": true,
             "quote": "'",
             "delimiter": ",",
-            "query": "resources\r\n| where type in~ (\"microsoft.compute/virtualmachines\",\"microsoft.hybridcompute/machines\")\r\n| summarize Count = count() by subscriptionId, resourceGroup\r\n| order by Count desc\r\n| extend Rank = row_number()\r\n| project value = strcat('/subscriptions/', subscriptionId, '/resourceGroups/', resourceGroup), label = resourceGroup, selected = false",
+            "query": "resources\r\n| where type in~ (\"microsoft.operationalinsights/workspaces\")\r\n| summarize Count = count() by subscriptionId, resourceGroup\r\n| order by Count desc\r\n| extend Rank = row_number()\r\n| project value = strcat('/subscriptions/', subscriptionId, '/resourceGroups/', resourceGroup), label = resourceGroup, selected = false",
             "crossComponentResources": [
               "{LAWSubscription}"
             ],
@@ -178,8 +179,7 @@
             "resourceType": "microsoft.resourcegraph/resources",
             "value": [
               "value::all"
-            ],
-            "id": "76c52f14-3cde-4d37-bfdf-86e67e787e4a"
+            ]
           },
           {
             "id": "ef27d563-e21a-4f5c-9b2b-2f8aee1a157a",
@@ -220,8 +220,7 @@
             "typeSettings": {
               "additionalResourceOptions": []
             },
-            "jsonData": "[{\"value\":\"true\",\"label\":\"Yes\",\"selected\":true},\r\n{\"value\":\"false\",\"label\":\"No\"}]",
-            "value": "false"
+            "jsonData": "[{\"value\":\"true\",\"label\":\"Yes\",\"selected\":true},\r\n{\"value\":\"false\",\"label\":\"No\"}]"
           },
           {
             "id": "0cadcd37-e29c-49c4-a2a9-82b49a472d1e",
@@ -233,7 +232,8 @@
             "typeSettings": {
               "additionalResourceOptions": []
             },
-            "jsonData": "[\r\n    {\"value\":\"true\",\"label\":\"Yes\"},\r\n    {\"value\":\"false\",\"label\":\"No\",\"selected\":true}]"
+            "jsonData": "[\r\n    {\"value\":\"true\",\"label\":\"Yes\"},\r\n    {\"value\":\"false\",\"label\":\"No\",\"selected\":true}]",
+            "value": "true"
           },
           {
             "version": "KqlParameterItem/1.0",
@@ -251,7 +251,7 @@
         ],
         "style": "above",
         "queryType": 1,
-        "resourceType": "microsoft.resourcegraph/resources"
+        "resourceType": "microsoft.resources/tenants"
       },
       "name": "parameters - 7"
     },
@@ -316,7 +316,7 @@
                     "additionalResourceOptions": [],
                     "showDefault": false
                   },
-                  "jsonData": "[{\"value\":\"avg\",\"label\":\"Média\",\"selected\":true},\r\n{\"value\":\"max\",\"label\":\"Máximo\"},\r\n{\"value\":\"min\",\"label\":\"Mínimo\"}]",
+                  "jsonData": "[{\"value\":\"avg\",\"label\":\"Average\",\"selected\":true},\r\n{\"value\":\"max\",\"label\":\"Maximum\"},\r\n{\"value\":\"min\",\"label\":\"Minimum\"}]",
                   "timeContext": {
                     "durationMs": 86400000
                   }
@@ -362,7 +362,8 @@
                     "additionalResourceOptions": [],
                     "showDefault": false
                   },
-                  "jsonData": "[{\"value\":\"flat\",\"label\":\"Direta\",\"selected\":true},\r\n{\"value\":\"hierarchy\",\"label\":\"Hierárquica\"}]"
+                  "jsonData": "[{\"value\":\"flat\",\"label\":\"Flat\",\"selected\":true},\r\n{\"value\":\"hierarchy\",\"label\":\"Hierarchy\"}]",
+                  "value": "hierarchy"
                 },
                 {
                   "id": "1ce4ee12-6f0c-47eb-95e6-5c3eb9cc26ec",
@@ -375,7 +376,7 @@
                     "additionalResourceOptions": [],
                     "showDefault": false
                   },
-                  "jsonData": "[\r\n    {\"value\":\"type =~ 'microsoft.compute/virtualmachines'\",\"label\":\"Azure VM\"},\r\n    {\"value\":\"type =~ 'microsoft.hybridcompute/machines'\",\"label\":\"ARC Server\"},\r\n    {\"value\":\"true\",\"label\":\"Todos\",\"selected\":true}\r\n]"
+                  "jsonData": "[\r\n    {\"value\":\"type =~ 'microsoft.compute/virtualmachines'\",\"label\":\"Azure VM\"},\r\n    {\"value\":\"type =~ 'microsoft.hybridcompute/machines'\",\"label\":\"ARC Server\"},\r\n    {\"value\":\"true\",\"label\":\"All\",\"selected\":true}\r\n]"
                 }
               ],
               "style": "above",
@@ -406,7 +407,7 @@
                     "additionalResourceOptions": [],
                     "showDefault": false
                   },
-                  "jsonData": "[\r\n    {\"label\":\"Saudáveis\",\"value\":\"MachineStatus in('Connected','VM running')\"},\r\n    {\"label\":\"Não saudáveis\",\"value\":\"MachineStatus !in('Connected','VM running')\"},\r\n    {\"label\":\"Todos\",\"value\":\"true\",\"selected\":true}\r\n]"
+                  "jsonData": "[\r\n    {\"label\":\"Healthy\",\"value\":\"MachineStatus in('Connected','VM running')\"},\r\n    {\"label\":\"Unhealthy\",\"value\":\"MachineStatus !in('Connected','VM running')\"},\r\n    {\"label\":\"All\",\"value\":\"true\",\"selected\":true}\r\n]"
                 },
                 {
                   "id": "d2b43e07-7249-4e4f-87a3-97812028965c",
@@ -420,7 +421,7 @@
                     "additionalResourceOptions": [],
                     "showDefault": false
                   },
-                  "jsonData": "[{\"value\":\"Perf\",\"label\":\"Performance\"},\r\n{\"value\":\"Heartbeat\",\"label\":\"Disponibilidade\"},\r\n{\"value\":\"All\",\"label\":\"Ambos\"},\r\n{\"value\":\"None\",\"label\":\"Nenhum\",\"selected\":true}]",
+                  "jsonData": "[{\"value\":\"Perf\",\"label\":\"Performance\"},\r\n{\"value\":\"Heartbeat\",\"label\":\"Availability\"},\r\n{\"value\":\"All\",\"label\":\"Both\"},\r\n{\"value\":\"None\",\"label\":\"Nenhum\",\"selected\":true}]",
                   "timeContext": {
                     "durationMs": 86400000
                   }
@@ -875,8 +876,8 @@
                     "columnMatch": "CPUUsage",
                     "formatter": 8,
                     "formatOptions": {
-                      "Min": 0,
-                      "Max": 100,
+                      "min": 0,
+                      "max": 100,
                       "palette": "greenRed",
                       "customColumnWidthSetting": "14ch"
                     },
@@ -892,8 +893,8 @@
                     "columnMatch": "MemoryUsage",
                     "formatter": 8,
                     "formatOptions": {
-                      "Min": 0,
-                      "Max": 100,
+                      "min": 0,
+                      "max": 100,
                       "palette": "greenRed",
                       "customColumnWidthSetting": "14ch"
                     },
@@ -909,8 +910,8 @@
                     "columnMatch": "OSDiskUsedSpacePercentage",
                     "formatter": 8,
                     "formatOptions": {
-                      "Min": 0,
-                      "Max": 100,
+                      "min": 0,
+                      "max": 100,
                       "palette": "greenRed",
                       "customColumnWidthSetting": "14ch"
                     },
@@ -1063,11 +1064,10 @@
                     "additionalResourceOptions": [],
                     "showDefault": false
                   },
-                  "jsonData": "[{\"value\":\"avg\",\"label\":\"Média\",\"selected\":true},\r\n{\"value\":\"max\",\"label\":\"Máximo\"},\r\n{\"value\":\"min\",\"label\":\"Mínimo\"}]",
+                  "jsonData": "[{\"value\":\"avg\",\"label\":\"Average\",\"selected\":true},\r\n{\"value\":\"max\",\"label\":\"Maximum\"},\r\n{\"value\":\"min\",\"label\":\"Minimum\"}]",
                   "timeContext": {
                     "durationMs": 86400000
-                  },
-                  "value": "Max"
+                  }
                 },
                 {
                   "id": "efb3b066-84ab-4b90-884a-6bafae04e3d6",
@@ -1081,7 +1081,7 @@
                     "additionalResourceOptions": [],
                     "showDefault": false
                   },
-                  "jsonData": "[\r\n    {\"value\":\"'windows'\",\"label\":\"Windows\"},\r\n    {\"value\":\"'linux'\",\"label\":\"Linux\"},\r\n    {\"value\":\"'windows','linux'\",\"label\":\"Todos\",\"selected\":true}\r\n]",
+                  "jsonData": "[\r\n    {\"value\":\"'windows'\",\"label\":\"Windows\"},\r\n    {\"value\":\"'linux'\",\"label\":\"Linux\"},\r\n    {\"value\":\"'windows','linux'\",\"label\":\"All\",\"selected\":true}\r\n]",
                   "timeContext": {
                     "durationMs": 86400000
                   }
@@ -1240,7 +1240,7 @@
                       {
                         "type": 1,
                         "content": {
-                          "json": "### Recursos com maior utilização - top 5"
+                          "json": "### Most used resources - top 5"
                         },
                         "name": "text - 3"
                       },
@@ -1413,7 +1413,7 @@
                       {
                         "type": 1,
                         "content": {
-                          "json": "### Recursos com menor utilização - bottom 5"
+                          "json": "### Least used resources - bottom 5"
                         },
                         "name": "text - 3"
                       },
