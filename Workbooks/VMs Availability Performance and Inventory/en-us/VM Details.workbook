@@ -100,7 +100,7 @@
             "value": {
               "durationMs": 86400000
             },
-            "label": "Período"
+            "label": "Period"
           },
           {
             "id": "3148d801-c8c1-4c14-b608-7fed2a304634",
@@ -130,13 +130,13 @@
             "id": "2ba52605-f9ae-4cc6-a1f6-c4b7c6e19297",
             "version": "KqlParameterItem/1.0",
             "name": "PerfAggregator",
-            "label": "Agregar por ",
+            "label": "Aggregate by ",
             "type": 10,
             "isRequired": true,
             "typeSettings": {
               "additionalResourceOptions": []
             },
-            "jsonData": "[{ \"value\": \"avg\", \"label\": \"Média\", \"selected\":true }, { \"value\": \"max\", \"label\": \"Máximo\"}, { \"value\": \"min\", \"label\": \"Mínimo\"}]"
+            "jsonData": "[{ \"value\": \"avg\", \"label\": \"Average\", \"selected\":true }, { \"value\": \"max\", \"label\": \"Maximum\"}, { \"value\": \"min\", \"label\": \"Minimum\"}]"
           },
           {
             "id": "10eb458a-e8bd-4dc5-bfaa-45bb269efd67",
@@ -356,7 +356,7 @@
             "id": "1fb0ee15-722e-44c5-884d-dd1bfa5c0502",
             "cellValue": "selectedTab",
             "linkTarget": "parameter",
-            "linkLabel": "Performance e disponibilidade",
+            "linkLabel": "Performance and availability",
             "subTarget": "Perf",
             "style": "link"
           },
@@ -364,7 +364,7 @@
             "id": "4c48b3a5-debe-4cba-a330-75eb7f6650b8",
             "cellValue": "selectedTab",
             "linkTarget": "parameter",
-            "linkLabel": "Alertas",
+            "linkLabel": "Alerts",
             "subTarget": "Alerts",
             "style": "link"
           },
@@ -372,7 +372,7 @@
             "id": "8cdabd74-ee5b-4539-b58c-44f7fe0abd70",
             "cellValue": "selectedTab",
             "linkTarget": "parameter",
-            "linkLabel": "Eventos (Syslog ou Windows Events)",
+            "linkLabel": "Events (Syslog or Windows Events)",
             "subTarget": "Events",
             "style": "link"
           },
@@ -380,7 +380,7 @@
             "id": "ee7db16e-5fc0-464c-b0c0-10542253a755",
             "cellValue": "selectedTab",
             "linkTarget": "parameter",
-            "linkLabel": "Log de Atividades Azure",
+            "linkLabel": "Azure Activity Log",
             "subTarget": "ActivityLog",
             "style": "link"
           }
@@ -472,7 +472,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "InsightsMetrics\r\n| where Namespace == \"Computer\" and Name == \"Heartbeat\"\r\n| where _ResourceId =~ \"{VMResourceID}\"\r\n| summarize Disponibilidade = avg(Val) by bin(TimeGenerated,{TimeRange:grain})\r\n| render columnchart ",
+              "query": "InsightsMetrics\r\n| where Namespace == \"Computer\" and Name == \"Heartbeat\"\r\n| where _ResourceId =~ \"{VMResourceID}\"\r\n| summarize Availability = avg(Val) by bin(TimeGenerated,{TimeRange:grain})\r\n| render columnchart ",
               "size": 1,
               "aggregation": 5,
               "title": "Availability",
@@ -504,10 +504,10 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "let ComputerIdList = datatable(id: string)[\r\n    '{VMResourceID}'\r\n];\r\nlet TimeGrain = {TimeRange:grain};\r\nlet InsightsMetricsInfo = materialize(InsightsMetrics\r\n    | where Namespace in (\"Processor\", \"Memory\", \"LogicalDisk\") and Name in (\"UtilizationPercentage\", \"AvailableMB\", \"FreeSpacePercentage\")\r\n    | where _ResourceId in~ (ComputerIdList));\r\nlet CPUUsage = InsightsMetricsInfo\r\n    | where Namespace == \"Processor\" and Name == \"UtilizationPercentage\"\r\n    | summarize CPU = {PerfAggregator}(Val) by _ResourceId, bin(TimeGenerated,TimeGrain);\r\nlet MemoryUsage = InsightsMetricsInfo\r\n    | where Namespace == \"Memory\" and Name == \"AvailableMB\"\r\n    | extend MemorySizeMB = parse_json(Tags).['vm.azm.ms/memorySizeMB']\r\n    | extend PercentMemoryUsed = (1 - (Val / MemorySizeMB)) * 100\r\n    | summarize Memoria = {PerfAggregator}(PercentMemoryUsed) by _ResourceId, bin(TimeGenerated, TimeGrain);\r\nlet DiskUsedSpace = InsightsMetricsInfo\r\n    | where Namespace == \"LogicalDisk\"\r\n    | where Name == \"FreeSpacePercentage\"\r\n    | extend Instance = tostring(todynamic(Tags).[\"vm.azm.ms/mountId\"])\r\n    | where Instance == \"/\" or Instance =~ \"C:\"\r\n    | extend UsedSpacePercentage = 100 - Val\r\n    | summarize OSDisk = {PerfAggregator}(UsedSpacePercentage) by _ResourceId, Instance, bin(TimeGenerated, TimeGrain)\r\n    | project-away Instance;\r\nCPUUsage\r\n| join kind=leftouter MemoryUsage on _ResourceId, TimeGenerated\r\n| join kind=leftouter DiskUsedSpace on _ResourceId, TimeGenerated\r\n| project-away _ResourceId1, _ResourceId2, TimeGenerated1, TimeGenerated2\r\n| render timechart",
+              "query": "let ComputerIdList = datatable(id: string)[\r\n    '{VMResourceID}'\r\n];\r\nlet TimeGrain = {TimeRange:grain};\r\nlet InsightsMetricsInfo = materialize(InsightsMetrics\r\n    | where Namespace in (\"Processor\", \"Memory\", \"LogicalDisk\") and Name in (\"UtilizationPercentage\", \"AvailableMB\", \"FreeSpacePercentage\")\r\n    | where _ResourceId in~ (ComputerIdList));\r\nlet CPUUsage = InsightsMetricsInfo\r\n    | where Namespace == \"Processor\" and Name == \"UtilizationPercentage\"\r\n    | summarize CPU = {PerfAggregator}(Val) by _ResourceId, bin(TimeGenerated,TimeGrain);\r\nlet MemoryUsage = InsightsMetricsInfo\r\n    | where Namespace == \"Memory\" and Name == \"AvailableMB\"\r\n    | extend MemorySizeMB = parse_json(Tags).['vm.azm.ms/memorySizeMB']\r\n    | extend PercentMemoryUsed = (1 - (Val / MemorySizeMB)) * 100\r\n    | summarize Memory = {PerfAggregator}(PercentMemoryUsed) by _ResourceId, bin(TimeGenerated, TimeGrain);\r\nlet DiskUsedSpace = InsightsMetricsInfo\r\n    | where Namespace == \"LogicalDisk\"\r\n    | where Name == \"FreeSpacePercentage\"\r\n    | extend Instance = tostring(todynamic(Tags).[\"vm.azm.ms/mountId\"])\r\n    | where Instance == \"/\" or Instance =~ \"C:\"\r\n    | extend UsedSpacePercentage = 100 - Val\r\n    | summarize OSDisk = {PerfAggregator}(UsedSpacePercentage) by _ResourceId, Instance, bin(TimeGenerated, TimeGrain)\r\n    | project-away Instance;\r\nCPUUsage\r\n| join kind=leftouter MemoryUsage on _ResourceId, TimeGenerated\r\n| join kind=leftouter DiskUsedSpace on _ResourceId, TimeGenerated\r\n| project-away _ResourceId1, _ResourceId2, TimeGenerated1, TimeGenerated2\r\n| render timechart",
               "size": 1,
               "aggregation": 5,
-              "title": "CPU Memória e Disco (/) (%)",
+              "title": "CPU Memory and Disk (/) (%)",
               "timeContextFromParameter": "TimeRange",
               "timeBrushParameterName": "TimeRange",
               "timeBrushExportOnlyWhenBrushed": true,
@@ -531,13 +531,13 @@
             "content": {
               "version": "NotebookGroup/1.0",
               "groupType": "editable",
-              "title": "Interfaces de rede",
+              "title": "Network interfaces",
               "items": [
                 {
                   "type": 3,
                   "content": {
                     "version": "KqlItem/1.0",
-                    "query": "InsightsMetrics\r\n| where _ResourceId =~ \"{VMResourceID}\"\r\n| where Namespace == \"Network\" and Name ==\"ReadBytesPerSecond\"\r\n| extend NIC = tostring(parse_json(Tags).[\"vm.azm.ms/networkDeviceId\"])\r\n| summarize RedBytes = {PerfAggregator}(Val) by NIC, bin(TimeGenerated, {TimeRange:grain})\r\n| render timechart\r\n",
+                    "query": "InsightsMetrics\r\n| where _ResourceId =~ \"{VMResourceID}\"\r\n| where Namespace == \"Network\" and Name ==\"ReadBytesPerSecond\"\r\n| extend NIC = tostring(parse_json(Tags).[\"vm.azm.ms/networkDeviceId\"])\r\n| summarize ReadBytes = {PerfAggregator}(Val) by NIC, bin(TimeGenerated, {TimeRange:grain})\r\n| render timechart\r\n",
                     "size": 1,
                     "aggregation": 5,
                     "title": "Read Bytes / second",
@@ -616,7 +616,7 @@
                     "query": "InsightsMetrics\r\n| where _ResourceId =~ \"{VMResourceID}\"\r\n| where Namespace == \"LogicalDisk\"\r\n| extend Instance = tostring(todynamic(Tags).[\"vm.azm.ms/mountId\"])\r\n| project Instance, Name, Val\r\n| evaluate pivot(Name,{PerfAggregator:value}(Val),Instance)",
                     "size": 3,
                     "showAnalytics": true,
-                    "title": "Informações de disco - faça scroll lateral para ver todos",
+                    "title": "Disk information - scroll horizontally to see all",
                     "timeContextFromParameter": "TimeRange",
                     "showExportToExcel": true,
                     "queryType": 0,
@@ -800,8 +800,8 @@
               "version": "KqlItem/1.0",
               "query": "alertsmanagementresources\r\n| where type == 'microsoft.alertsmanagement/alerts'\r\n| extend Raised = todatetime(properties[\"essentials\"][\"startDateTime\"])\r\n| where Raised >= {TimeRange:start}\r\n| extend severity = tostring(properties[\"essentials\"][\"severity\"])\r\n| extend AffectedResource = tostring(properties[\"essentials\"][\"targetResource\"])\r\n| where AffectedResource =~ \"{VMResourceID}\"\r\n| extend MonitorCondition = tostring(properties[\"essentials\"][\"monitorCondition\"])\r\n| extend AlertState = tostring(properties[\"essentials\"][\"alertState\"])\r\n| project Raised, severity, name, AffectedResource, MonitorCondition, AlertState, id\r\n| order by severity desc, Raised desc\r\n",
               "size": 0,
-              "title": "Alertas",
-              "noDataMessage": "Não há alertas para este recurso no período escolhido",
+              "title": "Alerts",
+              "noDataMessage": "No alerts for this resource in the selected period",
               "queryType": 1,
               "resourceType": "microsoft.resources/tenants",
               "crossComponentResources": [
@@ -826,7 +826,7 @@
                     "formatter": 7,
                     "formatOptions": {
                       "linkTarget": "OpenBlade",
-                      "linkLabel": "Abrir",
+                      "linkLabel": "Open",
                       "linkIsContextBlade": true,
                       "bladeOpenContext": {
                         "bladeName": "AlertDetailsTemplateBlade",
@@ -855,31 +855,31 @@
                 "labelSettings": [
                   {
                     "columnId": "Raised",
-                    "label": "Aberto em"
+                    "label": "Opened at"
                   },
                   {
                     "columnId": "severity",
-                    "label": "Severidade"
+                    "label": "Severity"
                   },
                   {
                     "columnId": "name",
-                    "label": "Nome"
+                    "label": "Name"
                   },
                   {
                     "columnId": "AffectedResource",
-                    "label": "Recurso Afetado"
+                    "label": "Affected Resource"
                   },
                   {
                     "columnId": "MonitorCondition",
-                    "label": "Condição do monitor"
+                    "label": "Monitor Condition"
                   },
                   {
                     "columnId": "AlertState",
-                    "label": "Estado do Alerta"
+                    "label": "Alert State"
                   },
                   {
                     "columnId": "id",
-                    "label": "Detalhes do alerta"
+                    "label": "Alert Details"
                   }
                 ]
               }
@@ -900,14 +900,14 @@
       "content": {
         "version": "NotebookGroup/1.0",
         "groupType": "editable",
-        "title": "Eventos (Syslog / Windows Events)",
+        "title": "Events (Syslog / Windows Events)",
         "items": [
           {
             "type": 12,
             "content": {
               "version": "NotebookGroup/1.0",
               "groupType": "editable",
-              "title": "Servidor Linux - Exibindo eventos Syslog",
+              "title": "Linux Server - Showing Syslog events",
               "items": [
                 {
                   "type": 9,
@@ -987,7 +987,7 @@
                     "query": "Syslog\r\n| where _ResourceId =~ \"{VMResourceID}\"\r\n| where SeverityLevel in ({SyslogSeverity}) and Facility in ({SyslogFacility})\r\n| project EventTime, _ResourceId, SeverityLevel, Facility, SyslogMessage, ProcessName, ProcessID\r\n| order by EventTime desc\r\n",
                     "size": 0,
                     "showAnalytics": true,
-                    "noDataMessage": "Não há dados a exibir",
+                    "noDataMessage": "No data to display",
                     "timeContextFromParameter": "TimeRange",
                     "showExportToExcel": true,
                     "queryType": 0,
@@ -1103,7 +1103,7 @@
             "content": {
               "version": "NotebookGroup/1.0",
               "groupType": "editable",
-              "title": "Servidor Windows - Exibindo Windows Event Logs",
+              "title": "Windows Server - Showing Windows Event Logs",
               "items": [
                 {
                   "type": 9,
@@ -1246,7 +1246,7 @@
                     "version": "KqlItem/1.0",
                     "query": "Event \r\n| where _ResourceId =~ \"{VMResourceID}\" and EventLevelName in ({EventLevelParam}) and EventLog in ({EventLogParam}) and Source in ({SourceParam}) and EventID in ({EventIDParam})\r\n| summarize Events = count() by EventLevelName, bin(TimeGenerated, 1h)",
                     "size": 1,
-                    "title": "Linha do tempo - Selecione um intervalo para refletir nos eventos exibidos abaixo",
+                    "title": "Timeline - Select an interval to reflect in the events shown below",
                     "timeContextFromParameter": "TimeRange",
                     "timeBrushParameterName": "TimeRange",
                     "timeBrushExportOnlyWhenBrushed": true,
@@ -1329,7 +1329,7 @@
                     "query": "Event\r\n| where _ResourceId =~ \"{VMResourceID}\" and EventLevelName in ({EventLevelParam}) and EventLog in ({EventLogParam}) and Source in ({SourceParam}) and EventID in ({EventIDParam})\r\n| project TimeGenerated, Computer, EventLevelName, EventID, EventLog, Source, RenderedDescription \r\n| order by TimeGenerated desc",
                     "size": 0,
                     "showAnalytics": true,
-                    "title": "Lista de Eventos - Top 1000 - Ordem descrescente por tempo",
+                    "title": "Event List - Top 1000 - Descending order by time",
                     "timeContextFromParameter": "TimeRange",
                     "showExportToExcel": true,
                     "queryType": 0,
@@ -1419,7 +1419,7 @@
               "query": "AzureActivity\r\n| where _ResourceId =~ \"{VMResourceID}\"\r\n| project TimeGenerated, _ResourceId, Level, CategoryValue, OperationNameValue ,ActivityStatusValue, Caller, Details = pack_all()\r\n| order by TimeGenerated desc",
               "size": 0,
               "showAnalytics": true,
-              "noDataMessage": "Não há eventos para este recurso no log de atividades no período solicitado",
+              "noDataMessage": "No events for this resource in the activity log in the requested period",
               "timeContextFromParameter": "TimeRange",
               "showExportToExcel": true,
               "queryType": 0,
@@ -1455,7 +1455,7 @@
                     "formatter": 7,
                     "formatOptions": {
                       "linkTarget": "CellDetails",
-                      "linkLabel": "Abrir",
+                      "linkLabel": "Open",
                       "linkIsContextBlade": true
                     }
                   }
@@ -1463,19 +1463,19 @@
                 "labelSettings": [
                   {
                     "columnId": "_ResourceId",
-                    "label": "Recurso"
+                    "label": "Resource"
                   },
                   {
                     "columnId": "Level",
-                    "label": "Nível"
+                    "label": "Level"
                   },
                   {
                     "columnId": "CategoryValue",
-                    "label": "Categoria"
+                    "label": "Category"
                   },
                   {
                     "columnId": "OperationNameValue",
-                    "label": "Operação"
+                    "label": "Operation"
                   },
                   {
                     "columnId": "ActivityStatusValue",
@@ -1483,11 +1483,11 @@
                   },
                   {
                     "columnId": "Caller",
-                    "label": "Solicitante"
+                    "label": "Caller"
                   },
                   {
                     "columnId": "Details",
-                    "label": "Detalhes"
+                    "label": "Details"
                   }
                 ]
               }
