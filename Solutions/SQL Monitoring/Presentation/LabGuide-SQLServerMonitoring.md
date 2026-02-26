@@ -112,9 +112,10 @@ Data is sent directly to a **custom Log Analytics table** (`SQLServerMonitoring_
 |----------|---------|-------|
 | Azure Subscription | Host all resources | Contributor access required |
 | Resource Group | Container for all resources | Create one or use existing |
-| Log Analytics Workspace | Store monitoring data | Create one or use existing |
-| Azure Automation Account | Run the collection runbook | New, with System-assigned MI enabled |
+| Log Analytics Workspace | Store monitoring data | Use existing or create via template |
+| Azure Automation Account | Run the collection runbook | Use existing or create via template |
 | VM / Server (Hybrid Worker) | Execute runbook on-premises | Windows Server, Azure Arc-enabled |
+| Key Vault (optional) | Store SQL credentials | Use existing or create via template (SQL Auth only) |
 
 ### Network Requirements
 
@@ -175,18 +176,28 @@ This template creates the foundational Azure resources.
 
 | Parameter | Description | Example |
 |-----------|-------------|---------|
-| `automationAccountName` | Name for the Automation Account | `mycompany-sql-monitoring-aa` |
-| `logAnalyticsWorkspaceName` | Name for the Log Analytics Workspace | `mycompany-sql-monitoring-law` |
-| `location` | Azure region | `eastus` |
-| `keyVaultName` | Name for Key Vault (SQL Auth scenarios) | `mycompany-sqlmon-kv` |
+| `automationAccountName` | Name of the Automation Account (existing or new) | `mycompany-sql-monitoring-aa` |
+| `createAutomationAccount` | `true` to create new, `false` to use existing | `false` |
+| `automationAccountResourceGroup` | Resource group of existing Automation Account | `rg-shared-services` |
+| `logAnalyticsWorkspaceName` | Name of the Log Analytics Workspace (existing or new) | `mycompany-sql-monitoring-law` |
+| `createLogAnalyticsWorkspace` | `true` to create new, `false` to use existing | `true` |
+| `logAnalyticsWorkspaceResourceGroup` | Resource group of existing workspace | `rg-monitoring` |
+| `location` | Azure region for new resources | `eastus` |
 | `enableKeyVault` | Set to `true` if using SQL Authentication | `false` |
+| `createKeyVault` | `true` to create new, `false` to use existing | `false` |
+| `keyVaultName` | Name of the Key Vault (SQL Auth scenarios) | `mycompany-sqlmon-kv` |
+| `keyVaultResourceGroup` | Resource group of existing Key Vault | `rg-security` |
 
 5. Click **Review + create → Create**
 6. Wait for deployment to complete (~2-3 minutes)
 
+> **Important**: The custom table `SQLServerMonitoring_CL` is always created/updated, even when using an existing workspace. The deploying user needs Contributor access on the workspace's resource group if it differs from the deployment resource group.
+
 > **After deployment**, note the values in the **Outputs** tab:
 > - `automationAccountPrincipalId`
+> - `automationAccountResourceGroup`
 > - `logAnalyticsWorkspaceId`
+> - `logAnalyticsWorkspaceResourceGroup`
 > - `keyVaultName` (if enabled)
 
 ---

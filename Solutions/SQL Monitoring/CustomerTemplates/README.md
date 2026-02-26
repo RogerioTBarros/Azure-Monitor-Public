@@ -8,7 +8,7 @@
 
 | File | Description |
 |------|-------------|
-| [arm-template-infrastructure.json](arm-template-infrastructure.json) | ARM template for Automation Account, Log Analytics Workspace, Custom Table, and Key Vault |
+| [arm-template-infrastructure.json](arm-template-infrastructure.json) | ARM template — supports existing or new Automation Account, Log Analytics Workspace, Custom Table, and Key Vault |
 | [arm-template-data-collection.json](arm-template-data-collection.json) | ARM template for Data Collection Endpoint (DCE) and Data Collection Rule (DCR) |
 | [arm-template-workbook.json](arm-template-workbook.json) | ARM template for the Azure Monitor Workbook (4-tab dashboard) |
 | [Get-SQLServerInfo-LogsIngestionApi.ps1](Get-SQLServerInfo-LogsIngestionApi.ps1) | PowerShell runbook script (import into Azure Automation) |
@@ -28,14 +28,21 @@ The simplest way to deploy is through the Azure Portal using the ARM templates. 
 4. Click **"Load file"** and select `arm-template-infrastructure.json`
 5. Click **Save**
 6. Fill in the parameters:
-   - **Resource Group**: Create new or select existing
-   - **Automation Account Name**: Choose a name (e.g., `mycompany-sql-monitoring-aa`)
-   - **Log Analytics Workspace Name**: Choose a name (e.g., `mycompany-sql-monitoring-law`)
-   - **Location**: Select your preferred Azure region
+   - **Automation Account Name**: Name of your existing (or new) Automation Account
+   - **Create Automation Account**: `false` to use existing, `true` to create a new one
+   - **Automation Account Resource Group**: Resource group of the existing Automation Account (leave default if creating or if in same RG)
+   - **Log Analytics Workspace Name**: Name of your existing (or new) workspace
+   - **Create Log Analytics Workspace**: `false` to use existing, `true` to create a new one
+   - **Log Analytics Workspace Resource Group**: Resource group of the existing workspace (leave default if creating or if in same RG)
+   - **Location**: Azure region for new resources
    - **Enable Key Vault**: `true` if using SQL Authentication, `false` for Windows Authentication
-   - **Key Vault Name**: Required only if Enable Key Vault is `true`
+   - **Create Key Vault**: `false` to use existing, `true` to create a new one (only if Enable Key Vault is `true`)
+   - **Key Vault Name**: Name of existing or new Key Vault (SQL Auth only)
+   - **Key Vault Resource Group**: Resource group of the existing Key Vault (leave default if creating or if in same RG)
 7. Click **Review + Create → Create**
 8. **IMPORTANT**: After deployment completes, go to the **Outputs** tab and copy the values shown
+
+> **Note**: The custom table `SQLServerMonitoring_CL` is always created/updated, even when using an existing workspace. The deploying user needs Contributor access on the workspace's resource group.
 
 ### Step 2: Deploy Data Collection
 
@@ -133,21 +140,38 @@ If you prefer command-line deployment:
 # Login to Azure
 az login
 
-# Deploy everything with Windows Authentication
+# Use existing Automation Account, create new Log Analytics Workspace
 .\Deploy-SQLMonitoringSolution.ps1 `
     -ResourceGroupName "rg-sql-monitoring" `
     -Location "eastus" `
-    -AutomationAccountName "sql-monitoring-aa" `
-    -LogAnalyticsWorkspaceName "sql-monitoring-law"
-
-# Deploy with SQL Authentication
-.\Deploy-SQLMonitoringSolution.ps1 `
-    -ResourceGroupName "rg-sql-monitoring" `
-    -Location "eastus" `
-    -AutomationAccountName "sql-monitoring-aa" `
+    -AutomationAccountName "existing-automation-account" `
+    -AutomationAccountResourceGroup "rg-shared-services" `
     -LogAnalyticsWorkspaceName "sql-monitoring-law" `
+    -CreateLogAnalyticsWorkspace
+
+# Create everything from scratch with SQL Authentication
+.\Deploy-SQLMonitoringSolution.ps1 `
+    -ResourceGroupName "rg-sql-monitoring" `
+    -Location "eastus" `
+    -AutomationAccountName "sql-monitoring-aa" `
+    -CreateAutomationAccount `
+    -LogAnalyticsWorkspaceName "sql-monitoring-law" `
+    -CreateLogAnalyticsWorkspace `
     -SqlAuthenticationType "SQL" `
-    -KeyVaultName "sql-monitoring-kv"
+    -KeyVaultName "sql-monitoring-kv" `
+    -CreateKeyVault
+
+# Use all existing resources (different resource groups)
+.\Deploy-SQLMonitoringSolution.ps1 `
+    -ResourceGroupName "rg-sql-monitoring" `
+    -Location "eastus" `
+    -AutomationAccountName "existing-aa" `
+    -AutomationAccountResourceGroup "rg-shared-services" `
+    -LogAnalyticsWorkspaceName "existing-law" `
+    -LogAnalyticsWorkspaceResourceGroup "rg-monitoring" `
+    -SqlAuthenticationType "SQL" `
+    -KeyVaultName "existing-kv" `
+    -KeyVaultResourceGroup "rg-security"
 ```
 
 ---

@@ -2,27 +2,55 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "metadata": {
-    "description": "SQL Server Monitoring Solution - Infrastructure. Deploys Azure Automation Account, Log Analytics Workspace, and optionally Azure Key Vault.",
+    "description": "SQL Server Monitoring Solution - Infrastructure. Supports using existing Automation Account, Log Analytics Workspace, and Key Vault, or creating new ones. The custom Log Analytics table (SQLServerMonitoring_CL) is always created or updated.",
     "author": "Azure Monitor Assets"
   },
   "parameters": {
     "automationAccountName": {
       "type": "string",
       "metadata": {
-        "description": "Name of the Azure Automation Account."
+        "description": "Name of the Azure Automation Account (existing or new)."
+      }
+    },
+    "createAutomationAccount": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Set to true to create a new Automation Account in the deployment resource group. Set to false to use an existing one."
+      }
+    },
+    "automationAccountResourceGroup": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().name]",
+      "metadata": {
+        "description": "Resource group of the existing Automation Account. Only used when createAutomationAccount is false."
       }
     },
     "logAnalyticsWorkspaceName": {
       "type": "string",
       "metadata": {
-        "description": "Name of the Log Analytics Workspace."
+        "description": "Name of the Log Analytics Workspace (existing or new)."
+      }
+    },
+    "createLogAnalyticsWorkspace": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Set to true to create a new Log Analytics Workspace in the deployment resource group. Set to false to use an existing one."
+      }
+    },
+    "logAnalyticsWorkspaceResourceGroup": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().name]",
+      "metadata": {
+        "description": "Resource group of the existing Log Analytics Workspace. Only used when createLogAnalyticsWorkspace is false."
       }
     },
     "location": {
       "type": "string",
       "defaultValue": "[resourceGroup().location]",
       "metadata": {
-        "description": "Azure region for all resources. Must be the same for all components."
+        "description": "Azure region for new resources. Must be the same for all components."
       }
     },
     "logAnalyticsRetentionDays": {
@@ -31,81 +59,48 @@
       "minValue": 30,
       "maxValue": 730,
       "metadata": {
-        "description": "Data retention period in days for the Log Analytics Workspace."
+        "description": "Data retention period in days for the Log Analytics Workspace (new workspaces only) and the custom table."
       }
     },
     "enableKeyVault": {
       "type": "bool",
       "defaultValue": false,
       "metadata": {
-        "description": "Set to true to deploy an Azure Key Vault (required for SQL Authentication). Set to false for Windows Authentication."
+        "description": "Set to true to use an Azure Key Vault for SQL Authentication credentials. Set to false for Windows Authentication."
+      }
+    },
+    "createKeyVault": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Set to true to create a new Key Vault. Set to false to use an existing one. Only relevant when enableKeyVault is true."
       }
     },
     "keyVaultName": {
       "type": "string",
       "defaultValue": "",
       "metadata": {
-        "description": "Name of the Azure Key Vault (required only if enableKeyVault is true). Must be globally unique, 3-24 characters, alphanumeric and hyphens only."
+        "description": "Name of the Azure Key Vault (existing or new). Required when enableKeyVault is true."
+      }
+    },
+    "keyVaultResourceGroup": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().name]",
+      "metadata": {
+        "description": "Resource group of the existing Key Vault. Only used when enableKeyVault is true and createKeyVault is false."
       }
     }
   },
   "variables": {
-    "automationAccountId": "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
-    "workspaceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+    "aaResourceGroup": "[if(parameters('createAutomationAccount'), resourceGroup().name, parameters('automationAccountResourceGroup'))]",
+    "lawResourceGroup": "[if(parameters('createLogAnalyticsWorkspace'), resourceGroup().name, parameters('logAnalyticsWorkspaceResourceGroup'))]",
+    "kvResourceGroup": "[if(or(not(parameters('enableKeyVault')), parameters('createKeyVault')), resourceGroup().name, parameters('keyVaultResourceGroup'))]",
+    "automationAccountId": "[resourceId(variables('aaResourceGroup'), 'Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+    "workspaceId": "[resourceId(variables('lawResourceGroup'), 'Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
   },
   "resources": [
     {
-      "type": "Microsoft.OperationalInsights/workspaces",
-      "apiVersion": "2022-10-01",
-      "name": "[parameters('logAnalyticsWorkspaceName')]",
-      "location": "[parameters('location')]",
-      "properties": {
-        "sku": {
-          "name": "PerGB2018"
-        },
-        "retentionInDays": "[parameters('logAnalyticsRetentionDays')]",
-        "features": {
-          "enableLogAccessUsingOnlyResourcePermissions": true
-        }
-      }
-    },
-    {
-      "type": "Microsoft.OperationalInsights/workspaces/tables",
-      "apiVersion": "2022-10-01",
-      "name": "[concat(parameters('logAnalyticsWorkspaceName'), '/SQLServerMonitoring_CL')]",
-      "dependsOn": [
-        "[variables('workspaceId')]"
-      ],
-      "properties": {
-        "schema": {
-          "name": "SQLServerMonitoring_CL",
-          "columns": [
-            { "name": "TimeGenerated", "type": "datetime", "description": "Time when the data was collected" },
-            { "name": "CollectorName", "type": "string", "description": "Name of the Hybrid Worker machine that collected the data" },
-            { "name": "SqlInstance", "type": "string", "description": "SQL Server instance address" },
-            { "name": "ServerName", "type": "string", "description": "SQL Server @@SERVERNAME value" },
-            { "name": "SqlVersion", "type": "string", "description": "SQL Server version string" },
-            { "name": "InstanceStartTime", "type": "string", "description": "When the SQL Server instance was started" },
-            { "name": "InstanceUptimeSeconds", "type": "int", "description": "Instance uptime in seconds" },
-            { "name": "InstanceUptimeMinutes", "type": "int", "description": "Instance uptime in minutes" },
-            { "name": "InstanceUptimeHours", "type": "int", "description": "Instance uptime in hours" },
-            { "name": "InstanceUptimeDays", "type": "int", "description": "Instance uptime in days" },
-            { "name": "DatabaseName", "type": "string", "description": "Name of the database" },
-            { "name": "DatabaseState", "type": "string", "description": "State of the database (ONLINE, OFFLINE, etc.)" },
-            { "name": "RecoveryModel", "type": "string", "description": "Recovery model (FULL, SIMPLE, BULK_LOGGED)" },
-            { "name": "DatabaseCreateDate", "type": "string", "description": "When the database was created" },
-            { "name": "LastFullBackupTime", "type": "string", "description": "Last full backup completion time" },
-            { "name": "HoursSinceFullBackup", "type": "int", "description": "Hours since the last full backup" },
-            { "name": "LastFullBackupStatus", "type": "string", "description": "Status of the last full backup" },
-            { "name": "FullBackupAlertStatus", "type": "string", "description": "Backup alert status (OK, Warning, Critical, Never)" },
-            { "name": "LastLogBackupTime", "type": "string", "description": "Last transaction log backup time" },
-            { "name": "MinutesSinceLogBackup", "type": "int", "description": "Minutes since the last log backup" }
-          ]
-        },
-        "retentionInDays": "[parameters('logAnalyticsRetentionDays')]"
-      }
-    },
-    {
+      "condition": "[parameters('createAutomationAccount')]",
       "type": "Microsoft.Automation/automationAccounts",
       "apiVersion": "2023-11-01",
       "name": "[parameters('automationAccountName')]",
@@ -121,10 +116,80 @@
       }
     },
     {
-      "condition": "[parameters('enableKeyVault')]",
+      "condition": "[parameters('createLogAnalyticsWorkspace')]",
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2022-10-01",
+      "name": "[parameters('logAnalyticsWorkspaceName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": "[parameters('logAnalyticsRetentionDays')]",
+        "features": {
+          "enableLogAccessUsingOnlyResourcePermissions": true
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "deployCustomTable",
+      "resourceGroup": "[variables('lawResourceGroup')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+      ],
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "outer"
+        },
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "type": "Microsoft.OperationalInsights/workspaces/tables",
+              "apiVersion": "2022-10-01",
+              "name": "[concat(parameters('logAnalyticsWorkspaceName'), '/SQLServerMonitoring_CL')]",
+              "properties": {
+                "schema": {
+                  "name": "SQLServerMonitoring_CL",
+                  "columns": [
+                    { "name": "TimeGenerated", "type": "datetime", "description": "Time when the data was collected" },
+                    { "name": "CollectorName", "type": "string", "description": "Name of the Hybrid Worker machine that collected the data" },
+                    { "name": "SqlInstance", "type": "string", "description": "SQL Server instance address" },
+                    { "name": "ServerName", "type": "string", "description": "SQL Server @@SERVERNAME value" },
+                    { "name": "SqlVersion", "type": "string", "description": "SQL Server version string" },
+                    { "name": "InstanceStartTime", "type": "string", "description": "When the SQL Server instance was started" },
+                    { "name": "InstanceUptimeSeconds", "type": "int", "description": "Instance uptime in seconds" },
+                    { "name": "InstanceUptimeMinutes", "type": "int", "description": "Instance uptime in minutes" },
+                    { "name": "InstanceUptimeHours", "type": "int", "description": "Instance uptime in hours" },
+                    { "name": "InstanceUptimeDays", "type": "int", "description": "Instance uptime in days" },
+                    { "name": "DatabaseName", "type": "string", "description": "Name of the database" },
+                    { "name": "DatabaseState", "type": "string", "description": "State of the database (ONLINE, OFFLINE, etc.)" },
+                    { "name": "RecoveryModel", "type": "string", "description": "Recovery model (FULL, SIMPLE, BULK_LOGGED)" },
+                    { "name": "DatabaseCreateDate", "type": "string", "description": "When the database was created" },
+                    { "name": "LastFullBackupTime", "type": "string", "description": "Last full backup completion time" },
+                    { "name": "HoursSinceFullBackup", "type": "int", "description": "Hours since the last full backup" },
+                    { "name": "LastFullBackupStatus", "type": "string", "description": "Status of the last full backup" },
+                    { "name": "FullBackupAlertStatus", "type": "string", "description": "Backup alert status (OK, Warning, Critical, Never)" },
+                    { "name": "LastLogBackupTime", "type": "string", "description": "Last transaction log backup time" },
+                    { "name": "MinutesSinceLogBackup", "type": "int", "description": "Minutes since the last log backup" }
+                  ]
+                },
+                "retentionInDays": "[parameters('logAnalyticsRetentionDays')]"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "condition": "[and(parameters('enableKeyVault'), parameters('createKeyVault'))]",
       "type": "Microsoft.KeyVault/vaults",
       "apiVersion": "2023-07-01",
-      "name": "[if(parameters('enableKeyVault'), parameters('keyVaultName'), 'placeholder')]",
+      "name": "[if(and(parameters('enableKeyVault'), parameters('createKeyVault')), parameters('keyVaultName'), 'placeholder')]",
       "location": "[parameters('location')]",
       "properties": {
         "sku": {
@@ -143,6 +208,10 @@
       "type": "string",
       "value": "[parameters('automationAccountName')]"
     },
+    "automationAccountResourceGroup": {
+      "type": "string",
+      "value": "[variables('aaResourceGroup')]"
+    },
     "automationAccountPrincipalId": {
       "type": "string",
       "value": "[reference(variables('automationAccountId'), '2023-11-01', 'Full').identity.principalId]"
@@ -155,6 +224,10 @@
       "type": "string",
       "value": "[variables('workspaceId')]"
     },
+    "logAnalyticsWorkspaceResourceGroup": {
+      "type": "string",
+      "value": "[variables('lawResourceGroup')]"
+    },
     "keyVaultName": {
       "condition": "[parameters('enableKeyVault')]",
       "type": "string",
@@ -163,7 +236,7 @@
     "keyVaultResourceId": {
       "condition": "[parameters('enableKeyVault')]",
       "type": "string",
-      "value": "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
+      "value": "[resourceId(variables('kvResourceGroup'), 'Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
     }
   }
 }

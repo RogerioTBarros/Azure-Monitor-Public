@@ -26,7 +26,25 @@
     SQL Server authentication type: "Windows" or "SQL". Default: "Windows"
 
 .PARAMETER KeyVaultName
-    Name for the Key Vault (required only for SQL Authentication).
+    Name for the Key Vault (existing or new, required only for SQL Authentication).
+
+.PARAMETER KeyVaultResourceGroup
+    Resource group of an existing Key Vault. Defaults to ResourceGroupName.
+
+.PARAMETER CreateKeyVault
+    Create a new Key Vault. If omitted, uses an existing one.
+
+.PARAMETER CreateAutomationAccount
+    Create a new Automation Account. If omitted, uses an existing one.
+
+.PARAMETER AutomationAccountResourceGroup
+    Resource group of the existing Automation Account. Defaults to ResourceGroupName.
+
+.PARAMETER CreateLogAnalyticsWorkspace
+    Create a new Log Analytics Workspace. If omitted, uses an existing one.
+
+.PARAMETER LogAnalyticsWorkspaceResourceGroup
+    Resource group of the existing Log Analytics Workspace. Defaults to ResourceGroupName.
 
 .PARAMETER SkipInfrastructure
     Skip the infrastructure deployment (if already deployed).
@@ -38,22 +56,40 @@
     Skip the workbook deployment (if already deployed).
 
 .EXAMPLE
-    # Deploy everything with Windows Authentication
+    # Use existing Automation Account, create a new Log Analytics Workspace
     .\Deploy-SQLMonitoringSolution.ps1 `
         -ResourceGroupName "rg-sql-monitoring" `
         -Location "eastus" `
-        -AutomationAccountName "sql-monitoring-aa" `
-        -LogAnalyticsWorkspaceName "sql-monitoring-law"
+        -AutomationAccountName "existing-aa" `
+        -AutomationAccountResourceGroup "rg-shared-services" `
+        -LogAnalyticsWorkspaceName "sql-monitoring-law" `
+        -CreateLogAnalyticsWorkspace
 
 .EXAMPLE
-    # Deploy with SQL Authentication (includes Key Vault)
+    # Use all existing resources (Automation Account, LAW, Key Vault)
+    .\Deploy-SQLMonitoringSolution.ps1 `
+        -ResourceGroupName "rg-sql-monitoring" `
+        -Location "eastus" `
+        -AutomationAccountName "existing-aa" `
+        -AutomationAccountResourceGroup "rg-shared-services" `
+        -LogAnalyticsWorkspaceName "existing-law" `
+        -LogAnalyticsWorkspaceResourceGroup "rg-monitoring" `
+        -SqlAuthenticationType "SQL" `
+        -KeyVaultName "existing-kv" `
+        -KeyVaultResourceGroup "rg-security"
+
+.EXAMPLE
+    # Create everything from scratch
     .\Deploy-SQLMonitoringSolution.ps1 `
         -ResourceGroupName "rg-sql-monitoring" `
         -Location "eastus" `
         -AutomationAccountName "sql-monitoring-aa" `
+        -CreateAutomationAccount `
         -LogAnalyticsWorkspaceName "sql-monitoring-law" `
+        -CreateLogAnalyticsWorkspace `
         -SqlAuthenticationType "SQL" `
-        -KeyVaultName "sql-monitoring-kv"
+        -KeyVaultName "sql-monitoring-kv" `
+        -CreateKeyVault
 
 .NOTES
     Prerequisites:
@@ -72,8 +108,18 @@ param (
     [Parameter(Mandatory = $true)]
     [string]$AutomationAccountName,
 
+    [Parameter(Mandatory = $false)]
+    [string]$AutomationAccountResourceGroup,
+
+    [switch]$CreateAutomationAccount,
+
     [Parameter(Mandatory = $true)]
     [string]$LogAnalyticsWorkspaceName,
+
+    [Parameter(Mandatory = $false)]
+    [string]$LogAnalyticsWorkspaceResourceGroup,
+
+    [switch]$CreateLogAnalyticsWorkspace,
 
     [Parameter(Mandatory = $false)]
     [ValidateSet("Windows", "SQL")]
@@ -81,6 +127,11 @@ param (
 
     [Parameter(Mandatory = $false)]
     [string]$KeyVaultName = "",
+
+    [Parameter(Mandatory = $false)]
+    [string]$KeyVaultResourceGroup,
+
+    [switch]$CreateKeyVault,
 
     [Parameter(Mandatory = $false)]
     [string]$DataCollectionEndpointName = "sql-monitoring-dce",
@@ -116,6 +167,22 @@ try {
     exit 1
 }
 
+# Default resource group parameters
+if ([string]::IsNullOrEmpty($AutomationAccountResourceGroup)) {
+    $AutomationAccountResourceGroup = $ResourceGroupName
+}
+if ([string]::IsNullOrEmpty($LogAnalyticsWorkspaceResourceGroup)) {
+    $LogAnalyticsWorkspaceResourceGroup = $ResourceGroupName
+}
+if ([string]::IsNullOrEmpty($KeyVaultResourceGroup)) {
+    $KeyVaultResourceGroup = $ResourceGroupName
+}
+
+# Compute effective resource groups (where the resource actually lives)
+$effectiveAaRg = if ($CreateAutomationAccount) { $ResourceGroupName } else { $AutomationAccountResourceGroup }
+$effectiveLawRg = if ($CreateLogAnalyticsWorkspace) { $ResourceGroupName } else { $LogAnalyticsWorkspaceResourceGroup }
+$effectiveKvRg = if ($CreateKeyVault) { $ResourceGroupName } else { $KeyVaultResourceGroup }
+
 # Validate SQL Auth parameters
 if ($SqlAuthenticationType -eq "SQL" -and [string]::IsNullOrEmpty($KeyVaultName)) {
     Write-Host "[ERROR] KeyVaultName is required when using SQL Authentication." -ForegroundColor Red
@@ -128,11 +195,11 @@ Write-Host ""
 Write-Host "Deployment Configuration:" -ForegroundColor Yellow
 Write-Host "  Resource Group:        $ResourceGroupName"
 Write-Host "  Location:              $Location"
-Write-Host "  Automation Account:    $AutomationAccountName"
-Write-Host "  Log Analytics:         $LogAnalyticsWorkspaceName"
+Write-Host "  Automation Account:    $AutomationAccountName $(if ($CreateAutomationAccount) { '(CREATE)' } else { "(existing in $effectiveAaRg)" })"
+Write-Host "  Log Analytics:         $LogAnalyticsWorkspaceName $(if ($CreateLogAnalyticsWorkspace) { '(CREATE)' } else { "(existing in $effectiveLawRg)" })"
 Write-Host "  Auth Type:             $SqlAuthenticationType"
 if ($enableKeyVault) {
-    Write-Host "  Key Vault:             $KeyVaultName"
+    Write-Host "  Key Vault:             $KeyVaultName $(if ($CreateKeyVault) { '(CREATE)' } else { "(existing in $effectiveKvRg)" })"
 }
 Write-Host "  DCE Name:              $DataCollectionEndpointName"
 Write-Host "  DCR Name:              $DataCollectionRuleName"
@@ -167,13 +234,19 @@ if (-not $SkipInfrastructure) {
     Write-Host "  (Automation Account, Log Analytics Workspace, Custom Table, Key Vault)"
 
     $infraParams = @{
-        automationAccountName      = @{ value = $AutomationAccountName }
-        logAnalyticsWorkspaceName  = @{ value = $LogAnalyticsWorkspaceName }
-        location                   = @{ value = $Location }
-        enableKeyVault             = @{ value = $enableKeyVault }
+        automationAccountName              = @{ value = $AutomationAccountName }
+        createAutomationAccount            = @{ value = $CreateAutomationAccount.IsPresent }
+        automationAccountResourceGroup     = @{ value = $AutomationAccountResourceGroup }
+        logAnalyticsWorkspaceName          = @{ value = $LogAnalyticsWorkspaceName }
+        createLogAnalyticsWorkspace        = @{ value = $CreateLogAnalyticsWorkspace.IsPresent }
+        logAnalyticsWorkspaceResourceGroup = @{ value = $LogAnalyticsWorkspaceResourceGroup }
+        location                           = @{ value = $Location }
+        enableKeyVault                     = @{ value = $enableKeyVault }
+        createKeyVault                     = @{ value = $CreateKeyVault.IsPresent }
     }
     if ($enableKeyVault) {
         $infraParams.keyVaultName = @{ value = $KeyVaultName }
+        $infraParams.keyVaultResourceGroup = @{ value = $KeyVaultResourceGroup }
     }
 
     $infraParamsJson = $infraParams | ConvertTo-Json -Depth 5 -Compress
@@ -203,7 +276,7 @@ if (-not $SkipInfrastructure) {
     Write-Host "--- Step 1/4: Infrastructure (SKIPPED) ---" -ForegroundColor Yellow
     # Get existing principal ID
     $automationPrincipalId = az automation account show `
-        --resource-group $ResourceGroupName `
+        --resource-group $effectiveAaRg `
         --name $AutomationAccountName `
         --query "identity.principalId" -o tsv 2>&1
     Write-Host "     Automation Account Principal ID: $automationPrincipalId" -ForegroundColor Gray
@@ -221,7 +294,7 @@ if (-not $SkipDataCollection) {
         dataCollectionEndpointName       = @{ value = $DataCollectionEndpointName }
         dataCollectionRuleName           = @{ value = $DataCollectionRuleName }
         logAnalyticsWorkspaceName        = @{ value = $LogAnalyticsWorkspaceName }
-        logAnalyticsWorkspaceResourceGroup = @{ value = $ResourceGroupName }
+        logAnalyticsWorkspaceResourceGroup = @{ value = $effectiveLawRg }
         location                         = @{ value = $Location }
     }
 
@@ -254,15 +327,15 @@ if (-not $SkipDataCollection) {
     Write-Host ""
     Write-Host "--- Step 2/4: Data Collection (SKIPPED) ---" -ForegroundColor Yellow
     $dceEndpoint = az monitor data-collection endpoint show `
-        --resource-group $ResourceGroupName `
+        --resource-group $effectiveLawRg `
         --name $DataCollectionEndpointName `
         --query "logsIngestion.endpoint" -o tsv 2>&1
     $dcrImmutableId = az monitor data-collection rule show `
-        --resource-group $ResourceGroupName `
+        --resource-group $effectiveLawRg `
         --name $DataCollectionRuleName `
         --query "immutableId" -o tsv 2>&1
     $dcrResourceId = az monitor data-collection rule show `
-        --resource-group $ResourceGroupName `
+        --resource-group $effectiveLawRg `
         --name $DataCollectionRuleName `
         --query "id" -o tsv 2>&1
     Write-Host "     DCE Endpoint:    $dceEndpoint" -ForegroundColor Gray
