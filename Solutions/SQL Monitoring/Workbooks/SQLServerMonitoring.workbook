@@ -92,7 +92,7 @@
             "multiSelect": true,
             "quote": "'",
             "delimiter": ",",
-            "query": "SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| distinct SqlInstance\n| order by SqlInstance asc",
+            "query": "SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where isnotempty(SqlInstance)\n| where SqlInstance !contains \",\" and not(SqlInstance startswith \"[\") and not(SqlInstance endswith \"]\")\n| distinct SqlInstance\n| order by SqlInstance asc",
             "crossComponentResources": [
               "{Workspace}"
             ],
@@ -116,7 +116,7 @@
             "multiSelect": true,
             "quote": "'",
             "delimiter": ",",
-            "query": "SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where DatabaseName != \"_ERROR\"\n| distinct DatabaseName\n| order by DatabaseName asc",
+            "query": "SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| distinct DatabaseName\n| order by DatabaseName asc",
             "crossComponentResources": [
               "{Workspace}"
             ],
@@ -223,7 +223,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where DatabaseName != \"_ERROR\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| count",
+              "query": "SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| count",
               "size": 4,
               "title": "Total Databases",
               "queryType": 0,
@@ -250,7 +250,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where DatabaseName != \"_ERROR\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| where FullBackupAlertStatus in (\"Warning\", \"Critical\", \"Never\")\n| count",
+              "query": "SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| where FullBackupAlertStatus in (\"Warning\", \"Critical\", \"Never\")\n| count",
               "size": 4,
               "title": "Backup Alerts",
               "queryType": 0,
@@ -277,7 +277,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where DatabaseName != \"_ERROR\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| summarize \n    TotalDatabases = count(),\n    CompliantDatabases = countif(HoursSinceFullBackup <= 24 and HoursSinceFullBackup >= 0)\n| extend CompliancePercent = round(100.0 * CompliantDatabases / TotalDatabases, 1)\n| project CompliancePercent",
+              "query": "SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| summarize \n    TotalDatabases = count(),\n    CompliantDatabases = countif(HoursSinceFullBackup <= 24 and HoursSinceFullBackup >= 0)\n| extend CompliancePercent = round(100.0 * CompliantDatabases / TotalDatabases, 1)\n| project CompliancePercent",
               "size": 4,
               "title": "Backup Compliance %",
               "queryType": 0,
@@ -318,8 +318,8 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where DatabaseName != \"_ERROR\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| summarize Count = count() by FullBackupAlertStatus\n| order by Count desc",
-              "size": 2,
+              "query": "SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| summarize Count = count() by FullBackupAlertStatus\n| order by Count desc",
+              "size": 3,
               "title": "Databases by Backup Alert Status",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -355,8 +355,8 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where DatabaseName != \"_ERROR\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| summarize Count = count() by RecoveryModel\n| order by Count desc",
-              "size": 2,
+              "query": "SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| summarize Count = count() by RecoveryModel\n| order by Count desc",
+              "size": 3,
               "title": "Databases by Recovery Model",
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
@@ -551,7 +551,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where '*' in ({DatabaseName}) or DatabaseName in ({DatabaseName})\n| where DatabaseName != \"_ERROR\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| project SqlInstance, DatabaseName, DatabaseState, RecoveryModel, DatabaseCreateDate, LastFullBackupTime, HoursSinceFullBackup, FullBackupAlertStatus\n| order by SqlInstance asc, DatabaseName asc",
+              "query": "let _db = dynamic([{DatabaseName}]);\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where array_length(_db) == 0 or '*' in (_db) or DatabaseName in (_db)\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| project SqlInstance, DatabaseName, DatabaseState, RecoveryModel, DatabaseCreateDate, LastFullBackupTime, HoursSinceFullBackup, FullBackupAlertStatus\n| order by SqlInstance asc, DatabaseName asc",
               "size": 0,
               "title": "Database Details",
               "queryType": 0,
@@ -685,7 +685,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where DatabaseName != \"_ERROR\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| summarize DatabaseCount = count() by SqlInstance\n| order by DatabaseCount desc",
+              "query": "SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| summarize DatabaseCount = count() by SqlInstance\n| order by DatabaseCount desc",
               "size": 2,
               "title": "Database Count by Instance",
               "queryType": 0,
@@ -728,7 +728,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where '*' in ({DatabaseName}) or DatabaseName in ({DatabaseName})\n| where DatabaseName != \"_ERROR\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| summarize \n    TotalDatabases = count(),\n    CompliantDatabases = countif(HoursSinceFullBackup <= 24 and HoursSinceFullBackup >= 0),\n    WarningDatabases = countif(HoursSinceFullBackup > 24 and HoursSinceFullBackup <= 48),\n    CriticalDatabases = countif(HoursSinceFullBackup > 48 or FullBackupAlertStatus == \"Never\")\n    by SqlInstance\n| extend CompliancePercent = round(100.0 * CompliantDatabases / TotalDatabases, 1)\n| project SqlInstance, TotalDatabases, CompliantDatabases, WarningDatabases, CriticalDatabases, CompliancePercent\n| order by CompliancePercent asc",
+              "query": "let _db = dynamic([{DatabaseName}]);\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where array_length(_db) == 0 or '*' in (_db) or DatabaseName in (_db)\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| summarize \n    TotalDatabases = count(),\n    CompliantDatabases = countif(HoursSinceFullBackup <= 24 and HoursSinceFullBackup >= 0),\n    WarningDatabases = countif(HoursSinceFullBackup > 24 and HoursSinceFullBackup <= 48),\n    CriticalDatabases = countif(HoursSinceFullBackup > 48 or FullBackupAlertStatus == \"Never\")\n    by SqlInstance\n| extend CompliancePercent = round(100.0 * CompliantDatabases / TotalDatabases, 1)\n| project SqlInstance, TotalDatabases, CompliantDatabases, WarningDatabases, CriticalDatabases, CompliancePercent\n| order by CompliancePercent asc",
               "size": 0,
               "title": "Backup Compliance by Instance",
               "queryType": 0,
@@ -800,7 +800,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where '*' in ({DatabaseName}) or DatabaseName in ({DatabaseName})\n| where DatabaseName != \"_ERROR\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| where FullBackupAlertStatus in (\"Warning\", \"Critical\", \"Never\")\n| project SqlInstance, DatabaseName, RecoveryModel, LastFullBackupTime, HoursSinceFullBackup, FullBackupAlertStatus, LastLogBackupTime, MinutesSinceLogBackup\n| order by \n    case(FullBackupAlertStatus == \"Critical\", 1, FullBackupAlertStatus == \"Never\", 2, FullBackupAlertStatus == \"Warning\", 3, 4) asc,\n    HoursSinceFullBackup desc",
+              "query": "let _db = dynamic([{DatabaseName}]);\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where array_length(_db) == 0 or '*' in (_db) or DatabaseName in (_db)\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| where FullBackupAlertStatus in (\"Warning\", \"Critical\", \"Never\")\n| project SqlInstance, DatabaseName, RecoveryModel, LastFullBackupTime, HoursSinceFullBackup, FullBackupAlertStatus, LastLogBackupTime, MinutesSinceLogBackup\n| order by \n    case(FullBackupAlertStatus == \"Critical\", 1, FullBackupAlertStatus == \"Never\", 2, FullBackupAlertStatus == \"Warning\", 3, 4) asc,\n    HoursSinceFullBackup desc",
               "size": 0,
               "title": "Databases Requiring Attention",
               "queryType": 0,
@@ -889,7 +889,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where '*' in ({DatabaseName}) or DatabaseName in ({DatabaseName})\n| where DatabaseName != \"_ERROR\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| project SqlInstance, DatabaseName, RecoveryModel, LastFullBackupTime, HoursSinceFullBackup, LastFullBackupStatus, FullBackupAlertStatus\n| order by SqlInstance asc, DatabaseName asc",
+              "query": "let _db = dynamic([{DatabaseName}]);\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where array_length(_db) == 0 or '*' in (_db) or DatabaseName in (_db)\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| project SqlInstance, DatabaseName, RecoveryModel, LastFullBackupTime, HoursSinceFullBackup, LastFullBackupStatus, FullBackupAlertStatus\n| order by SqlInstance asc, DatabaseName asc",
               "size": 0,
               "title": "All Database Backup Status",
               "queryType": 0,
@@ -995,7 +995,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where '*' in ({DatabaseName}) or DatabaseName in ({DatabaseName})\n| where DatabaseName != \"_ERROR\"\n| where RecoveryModel == \"FULL\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| project SqlInstance, DatabaseName, LastLogBackupTime, MinutesSinceLogBackup\n| order by MinutesSinceLogBackup desc",
+              "query": "let _db = dynamic([{DatabaseName}]);\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where array_length(_db) == 0 or '*' in (_db) or DatabaseName in (_db)\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| where RecoveryModel == \"FULL\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| project SqlInstance, DatabaseName, LastLogBackupTime, MinutesSinceLogBackup\n| order by MinutesSinceLogBackup desc",
               "size": 0,
               "title": "Log Backup Status (Databases with FULL Recovery)",
               "queryType": 0,

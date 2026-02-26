@@ -22,8 +22,19 @@ This runbook connects from a central Hybrid Worker to multiple SQL Server instan
 ├─────────────────┤     │                   │     │                 │
 │  SQL Server N   │────▶│ Logs Ingestion    │     │ Custom Table:   │
 └─────────────────┘     │ API (Direct)      │     │ SQLServerMonitoring_CL
-                        └───────────────────┘     └─────────────────┘
+                        └────────┬──────────┘     └─────────────────┘
+                                 │
+                        ┌────────┴──────────┐
+                        │ Automation Acct   │
+                        │ Variable:         │
+                        │ "SqlInstances"    │
+                        │ ["Srv1","Srv2"]  │
+                        └───────────────────┘
 ```
+
+> **Tip**: The SQL instance list is stored as an Automation Account variable.
+> When VMs change IPs or new instances are added, just update the variable in the
+> Azure Portal — no need to edit schedules or runbook parameters.
 
 ## Benefits
 
@@ -32,6 +43,7 @@ This runbook connects from a central Hybrid Worker to multiple SQL Server instan
 - **Clean schema**: Custom table columns, no JSON parsing in KQL
 - **Scalable**: Works great for many SQL instances
 - **Secure**: Uses Managed Identity for Azure authentication
+- **Easy to manage**: SQL instance list stored as an Automation Account variable — edit directly in the Azure Portal without touching schedules or runbook parameters
 
 ---
 
@@ -276,7 +288,56 @@ az role assignment create \
     --scope "$dcrId"
 ```
 
-#### 7. Import and Configure Runbook
+#### 7. Create Automation Account Variable for SQL Instances
+
+The SQL instance list is stored as an Automation Account variable, making it easy to update when instances are added, removed, or change IPs — without modifying schedules or runbook parameters.
+
+**Option A: Azure Portal (easiest)**
+
+1. Go to **Azure Portal** → **Automation Account** → **Variables**
+2. Click **+ Add a variable**
+3. Set:
+   - **Name**: `SqlInstances`
+   - **Type**: `String`
+   - **Value**: A JSON array of instance connection strings, e.g.:
+     ```json
+     ["SQLServer1", "SQLServer2\\Instance1", "10.0.0.5,1433", "sql-prod-03.contoso.local"]
+     ```
+   - **Encrypted**: `No`
+4. Click **Create**
+
+**Option B: Azure CLI**
+
+```bash
+az automation variable create \
+    --resource-group "MyRG" \
+    --automation-account-name "MyAutomation" \
+    --name "SqlInstances" \
+    --value '"[\"SQLServer1\", \"SQLServer2\\\\Instance1\", \"10.0.0.5,1433\"]"' \
+    --encrypted false
+```
+
+**Option C: PowerShell**
+
+```powershell
+$instances = @("SQLServer1", "SQLServer2\Instance1", "10.0.0.5,1433") | ConvertTo-Json -Compress
+
+New-AzAutomationVariable `
+    -ResourceGroupName "MyRG" `
+    -AutomationAccountName "MyAutomation" `
+    -Name "SqlInstances" `
+    -Value $instances `
+    -Encrypted $false
+```
+
+> **Updating instances later**: Just edit the variable value in the Azure Portal
+> (Automation Account → Variables → SqlInstances → Edit) or use:
+> ```powershell
+> $newInstances = @("SQLServer1", "10.0.1.50,1433", "NewServer3") | ConvertTo-Json -Compress
+> Set-AzAutomationVariable -ResourceGroupName "MyRG" -AutomationAccountName "MyAutomation" -Name "SqlInstances" -Value $newInstances -Encrypted $false
+> ```
+
+#### 8. Import and Configure Runbook
 
 ```bash
 # Import the runbook
@@ -300,7 +361,9 @@ az automation runbook publish \
     --name "Get-SQLServerInfo-LogsIngestionApi"
 ```
 
-#### 8. Create Schedule with Parameters
+#### 9. Create Schedule with Parameters
+
+#### 9. Create Schedule
 
 ```bash
 # Create a schedule (every 5 minutes)
@@ -316,37 +379,46 @@ az automation schedule create \
     --interval 5
 ```
 
+> **Note**: SQL instances are now read from the Automation Account variable created in
+> step 7 — they no longer need to be passed as schedule parameters. This means you
+> can add/remove instances or update IPs by editing the variable, without touching the
+> schedule or job-schedule link.
+
 **Option A: Windows Authentication**
 
 ```bash
-# Link the runbook to the schedule with parameters
+# Link the runbook to the schedule (SQL instances come from the Automation variable)
 az automation job-schedule create \
     --resource-group "MyRG" \
     --automation-account-name "MyAutomation" \
     --runbook-name "Get-SQLServerInfo-LogsIngestionApi" \
     --schedule-name "SQLMonitoring-LogsAPI-5Min" \
     --run-on "MyHybridWorkerGroup" \
-    --parameters '{"SqlInstances":"SQLServer1,SQLServer2\\Instance1,10.0.0.5","SqlAuthenticationType":"Windows","DceEndpoint":"https://sql-monitoring-dce-xxxx.eastus-1.ingest.monitor.azure.com","DcrImmutableId":"dcr-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","StreamName":"Custom-SQLServerMonitoring_CL"}'
+    --parameters '{"SqlAuthenticationType":"Windows","DceEndpoint":"https://sql-monitoring-dce-xxxx.eastus-1.ingest.monitor.azure.com","DcrImmutableId":"dcr-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","StreamName":"Custom-SQLServerMonitoring_CL"}'
 ```
 
 **Option B: SQL Authentication with Key Vault**
 
 ```bash
-# Link the runbook to the schedule with parameters (SQL Auth)
+# Link the runbook to the schedule (SQL Auth, instances from Automation variable)
 az automation job-schedule create \
     --resource-group "MyRG" \
     --automation-account-name "MyAutomation" \
     --runbook-name "Get-SQLServerInfo-LogsIngestionApi" \
     --schedule-name "SQLMonitoring-LogsAPI-5Min" \
     --run-on "MyHybridWorkerGroup" \
-    --parameters '{"SqlInstances":"SQLServer1,SQLServer2\\Instance1,10.0.0.5","SqlAuthenticationType":"SQL","KeyVaultName":"sql-monitoring-kv","SqlUsernameSecretName":"SqlMonitorUsername","SqlPasswordSecretName":"SqlMonitorPassword","DceEndpoint":"https://sql-monitoring-dce-xxxx.eastus-1.ingest.monitor.azure.com","DcrImmutableId":"dcr-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","StreamName":"Custom-SQLServerMonitoring_CL"}'
+    --parameters '{"SqlAuthenticationType":"SQL","KeyVaultName":"sql-monitoring-kv","SqlUsernameSecretName":"SqlMonitorUsername","SqlPasswordSecretName":"SqlMonitorPassword","DceEndpoint":"https://sql-monitoring-dce-xxxx.eastus-1.ingest.monitor.azure.com","DcrImmutableId":"dcr-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","StreamName":"Custom-SQLServerMonitoring_CL"}'
 ```
+
+> **Tip**: You can still pass `SqlInstances` as a parameter to override the variable,
+> for example when testing specific instances manually.
 
 ### Parameters
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| `SqlInstances` | Yes | - | Array of SQL Server instance names |
+| `SqlInstances` | No | _(from variable)_ | Array of SQL Server instance names. If omitted, read from Automation Account variable |
+| `SqlInstancesVariableName` | No | SqlInstances | Name of the Automation Account variable containing the JSON array of instances |
 | `SqlAuthenticationType` | No | Windows | `Windows` or `SQL` |
 | `KeyVaultName` | For SQL Auth | - | Key Vault name containing SQL credentials |
 | `SqlUsernameSecretName` | No | SqlMonitorUsername | Secret name for SQL username |

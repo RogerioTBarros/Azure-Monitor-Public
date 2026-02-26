@@ -1,0 +1,169 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "description": "SQL Server Monitoring Solution - Infrastructure. Deploys Azure Automation Account, Log Analytics Workspace, and optionally Azure Key Vault.",
+    "author": "Azure Monitor Assets"
+  },
+  "parameters": {
+    "automationAccountName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the Azure Automation Account."
+      }
+    },
+    "logAnalyticsWorkspaceName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the Log Analytics Workspace."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for all resources. Must be the same for all components."
+      }
+    },
+    "logAnalyticsRetentionDays": {
+      "type": "int",
+      "defaultValue": 30,
+      "minValue": 30,
+      "maxValue": 730,
+      "metadata": {
+        "description": "Data retention period in days for the Log Analytics Workspace."
+      }
+    },
+    "enableKeyVault": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Set to true to deploy an Azure Key Vault (required for SQL Authentication). Set to false for Windows Authentication."
+      }
+    },
+    "keyVaultName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Name of the Azure Key Vault (required only if enableKeyVault is true). Must be globally unique, 3-24 characters, alphanumeric and hyphens only."
+      }
+    }
+  },
+  "variables": {
+    "automationAccountId": "[resourceId('Microsoft.Automation/automationAccounts', parameters('automationAccountName'))]",
+    "workspaceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2022-10-01",
+      "name": "[parameters('logAnalyticsWorkspaceName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": "[parameters('logAnalyticsRetentionDays')]",
+        "features": {
+          "enableLogAccessUsingOnlyResourcePermissions": true
+        }
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/tables",
+      "apiVersion": "2022-10-01",
+      "name": "[concat(parameters('logAnalyticsWorkspaceName'), '/SQLServerMonitoring_CL')]",
+      "dependsOn": [
+        "[variables('workspaceId')]"
+      ],
+      "properties": {
+        "schema": {
+          "name": "SQLServerMonitoring_CL",
+          "columns": [
+            { "name": "TimeGenerated", "type": "datetime", "description": "Time when the data was collected" },
+            { "name": "CollectorName", "type": "string", "description": "Name of the Hybrid Worker machine that collected the data" },
+            { "name": "SqlInstance", "type": "string", "description": "SQL Server instance address" },
+            { "name": "ServerName", "type": "string", "description": "SQL Server @@SERVERNAME value" },
+            { "name": "SqlVersion", "type": "string", "description": "SQL Server version string" },
+            { "name": "InstanceStartTime", "type": "string", "description": "When the SQL Server instance was started" },
+            { "name": "InstanceUptimeSeconds", "type": "int", "description": "Instance uptime in seconds" },
+            { "name": "InstanceUptimeMinutes", "type": "int", "description": "Instance uptime in minutes" },
+            { "name": "InstanceUptimeHours", "type": "int", "description": "Instance uptime in hours" },
+            { "name": "InstanceUptimeDays", "type": "int", "description": "Instance uptime in days" },
+            { "name": "DatabaseName", "type": "string", "description": "Name of the database" },
+            { "name": "DatabaseState", "type": "string", "description": "State of the database (ONLINE, OFFLINE, etc.)" },
+            { "name": "RecoveryModel", "type": "string", "description": "Recovery model (FULL, SIMPLE, BULK_LOGGED)" },
+            { "name": "DatabaseCreateDate", "type": "string", "description": "When the database was created" },
+            { "name": "LastFullBackupTime", "type": "string", "description": "Last full backup completion time" },
+            { "name": "HoursSinceFullBackup", "type": "int", "description": "Hours since the last full backup" },
+            { "name": "LastFullBackupStatus", "type": "string", "description": "Status of the last full backup" },
+            { "name": "FullBackupAlertStatus", "type": "string", "description": "Backup alert status (OK, Warning, Critical, Never)" },
+            { "name": "LastLogBackupTime", "type": "string", "description": "Last transaction log backup time" },
+            { "name": "MinutesSinceLogBackup", "type": "int", "description": "Minutes since the last log backup" }
+          ]
+        },
+        "retentionInDays": "[parameters('logAnalyticsRetentionDays')]"
+      }
+    },
+    {
+      "type": "Microsoft.Automation/automationAccounts",
+      "apiVersion": "2023-11-01",
+      "name": "[parameters('automationAccountName')]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "sku": {
+          "name": "Basic"
+        },
+        "publicNetworkAccess": true
+      }
+    },
+    {
+      "condition": "[parameters('enableKeyVault')]",
+      "type": "Microsoft.KeyVault/vaults",
+      "apiVersion": "2023-07-01",
+      "name": "[if(parameters('enableKeyVault'), parameters('keyVaultName'), 'placeholder')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "family": "A",
+          "name": "standard"
+        },
+        "tenantId": "[subscription().tenantId]",
+        "enableRbacAuthorization": true,
+        "enableSoftDelete": true,
+        "softDeleteRetentionInDays": 90
+      }
+    }
+  ],
+  "outputs": {
+    "automationAccountName": {
+      "type": "string",
+      "value": "[parameters('automationAccountName')]"
+    },
+    "automationAccountPrincipalId": {
+      "type": "string",
+      "value": "[reference(variables('automationAccountId'), '2023-11-01', 'Full').identity.principalId]"
+    },
+    "logAnalyticsWorkspaceId": {
+      "type": "string",
+      "value": "[reference(variables('workspaceId'), '2022-10-01').customerId]"
+    },
+    "logAnalyticsWorkspaceResourceId": {
+      "type": "string",
+      "value": "[variables('workspaceId')]"
+    },
+    "keyVaultName": {
+      "condition": "[parameters('enableKeyVault')]",
+      "type": "string",
+      "value": "[parameters('keyVaultName')]"
+    },
+    "keyVaultResourceId": {
+      "condition": "[parameters('enableKeyVault')]",
+      "type": "string",
+      "value": "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
+    }
+  }
+}
