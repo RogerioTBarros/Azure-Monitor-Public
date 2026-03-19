@@ -1,0 +1,712 @@
+{
+    "type": 12,
+    "content": {
+      "version": "NotebookGroup/1.0",
+      "groupType": "editable",
+      "items": [
+        {
+          "type": 1,
+          "content": {
+            "json": "## Análise de Uso — Métricas do Azure Monitor\n\nSelecione uma **VNET** para ver a comparação de métricas dos Storage Accounts associados.\n\n> 💡 **Navegação**: Com 5.000+ contas, a filtragem por VNET reduz o escopo para um número gerenciável (tipicamente 10-200 por VNET). Use o filtro na grid para refinar ainda mais.\n>\n> **Transactions** = 0 por 30+ dias → candidata à remoção. **UsedCapacity** > 0 com Transactions = 0 → dados armazenados sem acesso ativo (verificar migração).\n>\n> A grid de **Comparação de Métricas** mostra Transações, Capacidade, Ingress e Egress para todas as contas na VNET selecionada. Na grid de **Inventário** abaixo, clique em uma conta para ver os gráficos detalhados."
+          },
+          "name": "UsageDescription"
+        },
+        {
+          "type": 9,
+          "content": {
+            "version": "KqlParameterItem/1.0",
+            "parameters": [
+              {
+                "id": "c1d2e3f4-0002-0002-0002-000000000001",
+                "version": "KqlParameterItem/1.0",
+                "name": "UsageVNET",
+                "label": "VNET",
+                "type": 2,
+                "isRequired": true,
+                "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| mv-expand connection = properties.privateLinkServiceConnections\r\n| extend targetResourceId = tolower(tostring(connection.properties.privateLinkServiceId))\r\n| where targetResourceId contains 'microsoft.storage/storageaccounts'\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| extend vnetId = tolower(strcat('/subscriptions/', peSubId, '/resourcegroups/', peRG, '/providers/microsoft.network/virtualnetworks/', vnetName))\r\n| summarize StorageAccounts = dcount(targetResourceId), PEs = count() by vnetId, vnetName\r\n| project value = vnetId, label = strcat(vnetName, ' (', StorageAccounts, ' contas, ', PEs, ' PEs)'), selected = false\r\n| order by label asc",
+                "crossComponentResources": [
+                  "{Subscriptions}"
+                ],
+                "queryType": 1,
+                "resourceType": "microsoft.resourcegraph/resources",
+                "value": "/subscriptions/941a3b59-bb72-46d2-9a88-00b3e139eb25/resourcegroups/rgdvtranscvnet/providers/microsoft.network/virtualnetworks/vnetdvtranscbrazilsouth"
+              }
+            ],
+            "style": "pills",
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources"
+          },
+          "name": "UsageVNETSelector"
+        },
+        {
+          "type": 9,
+          "content": {
+            "version": "KqlParameterItem/1.0",
+            "parameters": [
+              {
+                "id": "c1d2e3f4-0002-0002-0002-000000000002",
+                "version": "KqlParameterItem/1.0",
+                "name": "UsageStorageIds",
+                "type": 2,
+                "multiSelect": true,
+                "quote": "",
+                "delimiter": ",",
+                "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| mv-expand connection = properties.privateLinkServiceConnections\r\n| extend targetResourceId = tolower(tostring(connection.properties.privateLinkServiceId))\r\n| where targetResourceId contains 'microsoft.storage/storageaccounts'\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| extend vnetId = tolower(strcat('/subscriptions/', peSubId, '/resourcegroups/', peRG, '/providers/microsoft.network/virtualnetworks/', vnetName))\r\n| where vnetId == '{UsageVNET}'\r\n| distinct targetResourceId\r\n| project value = targetResourceId, label = targetResourceId, selected = true",
+                "crossComponentResources": [
+                  "{Subscriptions}"
+                ],
+                "isHiddenWhenLocked": true,
+                "typeSettings": {
+                  "additionalResourceOptions": [
+                    "value::all"
+                  ],
+                  "showDefault": false
+                },
+                "defaultValue": "value::all",
+                "queryType": 1,
+                "resourceType": "microsoft.resourcegraph/resources"
+              }
+            ],
+            "style": "pills",
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources"
+          },
+          "conditionalVisibility": {
+            "parameterName": "UsageVNET",
+            "comparison": "isNotEqualTo",
+            "value": ""
+          },
+          "name": "UsageStorageIdsParam"
+        },
+        {
+          "type": 10,
+          "content": {
+            "chartId": "workbook-storage-transactions-grid",
+            "version": "MetricsItem/2.0",
+            "size": 0,
+            "chartType": 0,
+            "resourceType": "microsoft.storage/storageaccounts",
+            "metricScope": 0,
+            "resourceParameter": "UsageStorageIds",
+            "resourceIds": [
+              "{UsageStorageIds}"
+            ],
+            "timeContextFromParameter": "TimeRange",
+            "timeContext": {
+              "durationMs": 0
+            },
+            "metrics": [
+              {
+                "namespace": "microsoft.storage/storageaccounts",
+                "metric": "microsoft.storage/storageaccounts-Transaction-Transactions",
+                "aggregation": 1,
+                "columnName": "Transações"
+              },
+              {
+                "namespace": "microsoft.storage/storageaccounts",
+                "metric": "microsoft.storage/storageaccounts-Transaction-Ingress",
+                "aggregation": 1,
+                "columnName": "Ingress"
+              },
+              {
+                "namespace": "microsoft.storage/storageaccounts",
+                "metric": "microsoft.storage/storageaccounts-Transaction-Egress",
+                "aggregation": 1,
+                "columnName": "Egress"
+              }
+            ],
+            "title": "Transações (hidden)",
+            "resourceLimit": 200,
+            "gridSettings": {
+              "formatters": [
+                {
+                  "columnMatch": "Subscription",
+                  "formatter": 5
+                },
+                {
+                  "columnMatch": "Name",
+                  "formatter": 13,
+                  "formatOptions": {
+                    "linkTarget": "Resource"
+                  }
+                },
+                {
+                  "columnMatch": "Metric",
+                  "formatter": 1
+                },
+                {
+                  "columnMatch": "Aggregation",
+                  "formatter": 5
+                },
+                {
+                  "columnMatch": "Value",
+                  "formatter": 1
+                },
+                {
+                  "columnMatch": "Timeline",
+                  "formatter": 9
+                },
+                {
+                  "columnMatch": "microsoft.storage/storageaccounts-Transaction-Transactions",
+                  "formatter": 1,
+                  "numberFormat": {
+                    "unit": 0,
+                    "options": null
+                  }
+                },
+                {
+                  "columnMatch": "microsoft.storage/storageaccounts-Transaction-Ingress",
+                  "formatter": 1,
+                  "numberFormat": {
+                    "unit": 2,
+                    "options": null
+                  }
+                },
+                {
+                  "columnMatch": "microsoft.storage/storageaccounts-Transaction-Egress",
+                  "formatter": 1,
+                  "numberFormat": {
+                    "unit": 2,
+                    "options": null
+                  }
+                }
+              ],
+              "rowLimit": 10000,
+              "labelSettings": [
+                {
+                  "columnId": "Transações",
+                  "label": "Transações"
+                },
+                {
+                  "columnId": "Transações Timeline",
+                  "label": "Transações Timeline"
+                },
+                {
+                  "columnId": "Ingress",
+                  "label": "Ingress"
+                },
+                {
+                  "columnId": "Ingress Timeline",
+                  "label": "Ingress Timeline"
+                },
+                {
+                  "columnId": "Egress",
+                  "label": "Egress"
+                },
+                {
+                  "columnId": "Egress Timeline",
+                  "label": "Egress Timeline"
+                }
+              ]
+            }
+          },
+          "conditionalVisibility": {
+            "parameterName": "AlwaysHidden",
+            "comparison": "isNotEqualTo",
+            "value": ""
+          },
+          "name": "MetricsTransactionsGrid"
+        },
+        {
+          "type": 10,
+          "content": {
+            "chartId": "workbook-storage-capacity-grid",
+            "version": "MetricsItem/2.0",
+            "size": 0,
+            "chartType": 0,
+            "resourceType": "microsoft.storage/storageaccounts",
+            "metricScope": 0,
+            "resourceParameter": "UsageStorageIds",
+            "resourceIds": [
+              "{UsageStorageIds}"
+            ],
+            "timeContextFromParameter": "TimeRange",
+            "timeContext": {
+              "durationMs": 2592000000
+            },
+            "metrics": [
+              {
+                "namespace": "microsoft.storage/storageaccounts",
+                "metric": "microsoft.storage/storageaccounts-Capacity-UsedCapacity",
+                "aggregation": 4,
+                "columnName": "Capacidade Usada"
+              }
+            ],
+            "title": "Capacidade (hidden)",
+            "gridFormatType": 1,
+            "resourceLimit": 200,
+            "gridSettings": {
+              "formatters": [
+                {
+                  "columnMatch": "Subscription",
+                  "formatter": 5
+                },
+                {
+                  "columnMatch": "Name",
+                  "formatter": 13,
+                  "formatOptions": {
+                    "linkTarget": "Resource"
+                  }
+                },
+                {
+                  "columnMatch": "Metric",
+                  "formatter": 1
+                },
+                {
+                  "columnMatch": "Aggregation",
+                  "formatter": 5
+                },
+                {
+                  "columnMatch": "Value",
+                  "formatter": 1
+                },
+                {
+                  "columnMatch": "Timeline",
+                  "formatter": 9
+                }
+              ],
+              "rowLimit": 10000
+            }
+          },
+          "conditionalVisibility": {
+            "parameterName": "AlwaysHidden",
+            "comparison": "isNotEqualTo",
+            "value": ""
+          },
+          "name": "MetricsCapacityGrid"
+        },
+        {
+          "type": 3,
+          "content": {
+            "version": "KqlItem/1.0",
+            "query": "{\"version\":\"Merge/1.0\",\"merges\":[{\"id\":\"a1b2c3d4-0001-0001-0001-000000000001\",\"mergeType\":\"leftouter\",\"leftTable\":\"MetricsTransactionsGrid\",\"rightTable\":\"MetricsCapacityGrid\",\"leftColumn\":\"Name\",\"rightColumn\":\"Name\"}],\"projectRename\":[{\"originalName\":\"[MetricsTransactionsGrid].Subscription\",\"mergedName\":\"Subscription\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsTransactionsGrid].Name\",\"mergedName\":\"Name\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsTransactionsGrid].Transações\",\"mergedName\":\"Transações\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsTransactionsGrid].Transações Timeline\",\"mergedName\":\"Transações Timeline\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsTransactionsGrid].Ingress\",\"mergedName\":\"Ingress\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsTransactionsGrid].Ingress Timeline\",\"mergedName\":\"Ingress Timeline\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsTransactionsGrid].Egress\",\"mergedName\":\"Egress\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsTransactionsGrid].Egress Timeline\",\"mergedName\":\"Egress Timeline\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].Subscription\",\"mergedName\":\"Subscription1\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].Name\",\"mergedName\":\"Name1\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].Namespace\",\"mergedName\":\"Namespace\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].Metric\",\"mergedName\":\"Metric\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].Metric ID\",\"mergedName\":\"Metric ID\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].Aggregation\",\"mergedName\":\"Aggregation\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].Segment Field\",\"mergedName\":\"Segment Field\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].Segment\",\"mergedName\":\"Segment\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].Value\",\"mergedName\":\"Value\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].Timeline\",\"mergedName\":\"Timeline\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].$gen_group\"},{\"originalName\":\"[MetricsTransactionsGrid].Subscription\"},{\"originalName\":\"[MetricsTransactionsGrid].Name\"},{\"originalName\":\"[MetricsTransactionsGrid].Namespace\"},{\"originalName\":\"[MetricsTransactionsGrid].Metric\"},{\"originalName\":\"[MetricsTransactionsGrid].Metric ID\"},{\"originalName\":\"[MetricsTransactionsGrid].Aggregation\"},{\"originalName\":\"[MetricsTransactionsGrid].Segment Field\"},{\"originalName\":\"[MetricsTransactionsGrid].Segment\"},{\"originalName\":\"[MetricsTransactionsGrid].Timeline\"},{\"originalName\":\"[MetricsCapacityGrid].Subscription\"},{\"originalName\":\"[MetricsCapacityGrid].Name\"},{\"originalName\":\"[MetricsCapacityGrid].Namespace\"},{\"originalName\":\"[MetricsCapacityGrid].Metric\"},{\"originalName\":\"[MetricsCapacityGrid].Metric ID\"},{\"originalName\":\"[MetricsCapacityGrid].Aggregation\"},{\"originalName\":\"[MetricsCapacityGrid].Segment Field\"},{\"originalName\":\"[MetricsCapacityGrid].Segment\"},{\"originalName\":\"[MetricsCapacityGrid].Timeline\"}]}",
+            "size": 0,
+            "showAnalytics": true,
+            "title": "📊 Comparação de Métricas — Storage Accounts na VNET",
+            "showExportToExcel": true,
+            "queryType": 7,
+            "gridSettings": {
+              "formatters": [
+                {
+                  "columnMatch": "Storage Account",
+                  "formatter": 13,
+                  "formatOptions": {
+                    "linkTarget": "Resource",
+                    "showIcon": true
+                  }
+                },
+                {
+                  "columnMatch": "Transações",
+                  "formatter": 8,
+                  "formatOptions": {
+                    "palette": "blue"
+                  },
+                  "numberFormat": {
+                    "unit": 17,
+                    "options": {
+                      "style": "decimal",
+                      "maximumFractionDigits": 0
+                    }
+                  }
+                },
+                {
+                  "columnMatch": "Capacidade Usada",
+                  "formatter": 8,
+                  "formatOptions": {
+                    "palette": "orange"
+                  },
+                  "numberFormat": {
+                    "unit": 2,
+                    "options": {
+                      "style": "decimal",
+                      "maximumFractionDigits": 2
+                    }
+                  }
+                },
+                {
+                  "columnMatch": "Ingress",
+                  "formatter": 8,
+                  "formatOptions": {
+                    "palette": "green"
+                  },
+                  "numberFormat": {
+                    "unit": 2,
+                    "options": {
+                      "style": "decimal",
+                      "maximumFractionDigits": 2
+                    }
+                  }
+                },
+                {
+                  "columnMatch": "Egress",
+                  "formatter": 8,
+                  "formatOptions": {
+                    "palette": "purple"
+                  },
+                  "numberFormat": {
+                    "unit": 2,
+                    "options": {
+                      "style": "decimal",
+                      "maximumFractionDigits": 2
+                    }
+                  }
+                }
+              ],
+              "rowLimit": 10000,
+              "filter": true,
+              "sortBy": [
+                {
+                  "itemKey": "$gen_heatmap_Transações_2",
+                  "sortOrder": 1
+                }
+              ],
+              "labelSettings": [
+                {
+                  "columnId": "Transações",
+                  "label": "Transações (Total)"
+                },
+                {
+                  "columnId": "Ingress",
+                  "label": "Ingress (Total)"
+                },
+                {
+                  "columnId": "Egress",
+                  "label": "Egress (Total)"
+                }
+              ]
+            },
+            "sortBy": [
+              {
+                "itemKey": "$gen_heatmap_Transações_2",
+                "sortOrder": 1
+              }
+            ]
+          },
+          "conditionalVisibility": {
+            "parameterName": "UsageVNET",
+            "comparison": "isNotEqualTo",
+            "value": ""
+          },
+          "name": "MetricsMergedGrid"
+        },
+        {
+          "type": 3,
+          "content": {
+            "version": "KqlItem/1.0",
+            "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| mv-expand connection = properties.privateLinkServiceConnections\r\n| extend targetResourceId = tolower(tostring(connection.properties.privateLinkServiceId))\r\n| where targetResourceId contains 'microsoft.storage/storageaccounts'\r\n| extend targetName = extract(@'/([^/]+)$', 1, targetResourceId)\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| extend vnetId = tolower(strcat('/subscriptions/', peSubId, '/resourcegroups/', peRG, '/providers/microsoft.network/virtualnetworks/', vnetName))\r\n| where vnetId == '{UsageVNET}'\r\n| summarize PECount = count(), Subnets = make_set(subnetName) by targetResourceId, targetName\r\n| join kind=leftouter (\r\n    resources\r\n    | where type =~ 'microsoft.storage/storageaccounts'\r\n    | extend _tagAmb = tostring(tags.ambiente)\r\n    | extend _tagAMB = tostring(tags.Ambiente)\r\n    | extend _tagenv = tostring(tags.environment)\r\n    | extend _tagENV = tostring(tags.Environment)\r\n    | extend Ambiente = case(\r\n        isnotempty(_tagAmb), _tagAmb,\r\n        isnotempty(_tagAMB), _tagAMB,\r\n        isnotempty(_tagenv), _tagenv,\r\n        isnotempty(_tagENV), _tagENV,\r\n        'Sem tag')\r\n    | extend storageKind = kind\r\n    | extend storageSku = tostring(sku.name)\r\n    | extend accessTier = tostring(properties.accessTier)\r\n    | project storageId = tolower(id), Ambiente, storageKind, storageSku, accessTier, subscriptionId, storageRG = resourceGroup\r\n) on $left.targetResourceId == $right.storageId\r\n| join kind=leftouter (\r\n    resourcecontainers\r\n    | where type =~ 'microsoft.resources/subscriptions'\r\n    | project subscriptionId, SubName = name\r\n) on subscriptionId\r\n| extend SubnetList = strcat_array(Subnets, ', ')\r\n| project Ambiente, targetName, SubName, storageRG, SubnetList, PECount, storageKind, storageSku, accessTier, targetResourceId\r\n| order by targetName asc",
+            "size": 0,
+            "showAnalytics": true,
+            "title": "Inventário — clique para selecionar e ver gráficos detalhados",
+            "exportFieldName": "targetResourceId",
+            "exportParameterName": "SelectedStorageForMetrics",
+            "showExportToExcel": true,
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources",
+            "crossComponentResources": [
+              "{Subscriptions}"
+            ],
+            "gridSettings": {
+              "formatters": [
+                {
+                  "columnMatch": "Ambiente",
+                  "formatter": 18,
+                  "formatOptions": {
+                    "thresholdsOptions": "colors",
+                    "thresholdsGrid": [
+                      {
+                        "operator": "contains",
+                        "thresholdValue": "prod",
+                        "representation": "red",
+                        "text": "{0}{1}"
+                      },
+                      {
+                        "operator": "contains",
+                        "thresholdValue": "prd",
+                        "representation": "red",
+                        "text": "{0}{1}"
+                      },
+                      {
+                        "operator": "contains",
+                        "thresholdValue": "dev",
+                        "representation": "blue",
+                        "text": "{0}{1}"
+                      },
+                      {
+                        "operator": "contains",
+                        "thresholdValue": "hml",
+                        "representation": "orange",
+                        "text": "{0}{1}"
+                      },
+                      {
+                        "operator": "contains",
+                        "thresholdValue": "stg",
+                        "representation": "orange",
+                        "text": "{0}{1}"
+                      },
+                      {
+                        "operator": "contains",
+                        "thresholdValue": "hom",
+                        "representation": "orange",
+                        "text": "{0}{1}"
+                      },
+                      {
+                        "operator": "==",
+                        "thresholdValue": "Sem tag",
+                        "representation": "gray",
+                        "text": "{0}{1}"
+                      },
+                      {
+                        "operator": "Default",
+                        "thresholdValue": null,
+                        "representation": "green",
+                        "text": "{0}{1}"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "columnMatch": "PECount",
+                  "formatter": 4,
+                  "formatOptions": {
+                    "palette": "blue"
+                  }
+                },
+                {
+                  "columnMatch": "targetResourceId",
+                  "formatter": 5
+                }
+              ],
+              "rowLimit": 1000,
+              "filter": true,
+              "labelSettings": [
+                {
+                  "columnId": "Ambiente",
+                  "label": "Ambiente"
+                },
+                {
+                  "columnId": "targetName",
+                  "label": "Storage Account"
+                },
+                {
+                  "columnId": "SubName",
+                  "label": "Assinatura"
+                },
+                {
+                  "columnId": "storageRG",
+                  "label": "Grupo de Recursos"
+                },
+                {
+                  "columnId": "SubnetList",
+                  "label": "Sub-redes"
+                },
+                {
+                  "columnId": "PECount",
+                  "label": "Qtd. PEs"
+                },
+                {
+                  "columnId": "storageKind",
+                  "label": "Tipo"
+                },
+                {
+                  "columnId": "storageSku",
+                  "label": "SKU"
+                },
+                {
+                  "columnId": "accessTier",
+                  "label": "Camada de Acesso"
+                }
+              ]
+            }
+          },
+          "conditionalVisibility": {
+            "parameterName": "UsageVNET",
+            "comparison": "isNotEqualTo",
+            "value": ""
+          },
+          "name": "UsageStorageGrid"
+        },
+        {
+          "type": 1,
+          "content": {
+            "json": "---\n### 📈 Métricas de Uso — {SelectedStorageForMetrics:name}\n\nMétricas do Azure Monitor para o Storage Account selecionado no intervalo de **{TimeRange:label}**."
+          },
+          "conditionalVisibility": {
+            "parameterName": "SelectedStorageForMetrics",
+            "comparison": "isNotEqualTo",
+            "value": ""
+          },
+          "name": "MetricsHeader"
+        },
+        {
+          "type": 10,
+          "content": {
+            "chartId": "workbook-storage-transactions",
+            "version": "MetricsItem/2.0",
+            "size": 0,
+            "chartType": 2,
+            "resourceType": "microsoft.storage/storageaccounts",
+            "metricScope": 0,
+            "resourceParameter": "SelectedStorageForMetrics",
+            "resourceIds": [
+              "{SelectedStorageForMetrics}"
+            ],
+            "timeContextFromParameter": "TimeRange",
+            "timeContext": {
+              "durationMs": 2592000000
+            },
+            "metrics": [
+              {
+                "namespace": "microsoft.storage/storageaccounts",
+                "metric": "microsoft.storage/storageaccounts-Transaction-Transactions",
+                "aggregation": 1
+              }
+            ],
+            "title": "Transações ao Longo do Tempo",
+            "showOpenInMe": true,
+            "gridSettings": {
+              "rowLimit": 10000
+            }
+          },
+          "customWidth": "50",
+          "conditionalVisibility": {
+            "parameterName": "SelectedStorageForMetrics",
+            "comparison": "isNotEqualTo",
+            "value": ""
+          },
+          "name": "MetricsTransactions"
+        },
+        {
+          "type": 10,
+          "content": {
+            "chartId": "workbook-storage-capacity",
+            "version": "MetricsItem/2.0",
+            "size": 0,
+            "chartType": 2,
+            "resourceType": "microsoft.storage/storageaccounts",
+            "metricScope": 0,
+            "resourceParameter": "SelectedStorageForMetrics",
+            "resourceIds": [
+              "{SelectedStorageForMetrics}"
+            ],
+            "timeContextFromParameter": "TimeRange",
+            "timeContext": {
+              "durationMs": 2592000000
+            },
+            "metrics": [
+              {
+                "namespace": "microsoft.storage/storageaccounts",
+                "metric": "microsoft.storage/storageaccounts-Capacity-UsedCapacity",
+                "aggregation": 4
+              }
+            ],
+            "title": "Capacidade Utilizada",
+            "showOpenInMe": true,
+            "gridSettings": {
+              "rowLimit": 10000
+            }
+          },
+          "customWidth": "50",
+          "conditionalVisibility": {
+            "parameterName": "SelectedStorageForMetrics",
+            "comparison": "isNotEqualTo",
+            "value": ""
+          },
+          "name": "MetricsUsedCapacity"
+        },
+        {
+          "type": 10,
+          "content": {
+            "chartId": "workbook-storage-ingress",
+            "version": "MetricsItem/2.0",
+            "size": 0,
+            "chartType": 2,
+            "resourceType": "microsoft.storage/storageaccounts",
+            "metricScope": 0,
+            "resourceParameter": "SelectedStorageForMetrics",
+            "resourceIds": [
+              "{SelectedStorageForMetrics}"
+            ],
+            "timeContextFromParameter": "TimeRange",
+            "timeContext": {
+              "durationMs": 2592000000
+            },
+            "metrics": [
+              {
+                "namespace": "microsoft.storage/storageaccounts",
+                "metric": "microsoft.storage/storageaccounts-Transaction-Ingress",
+                "aggregation": 1
+              }
+            ],
+            "title": "Ingress (Dados de Entrada)",
+            "showOpenInMe": true,
+            "gridSettings": {
+              "rowLimit": 10000
+            }
+          },
+          "customWidth": "50",
+          "conditionalVisibility": {
+            "parameterName": "SelectedStorageForMetrics",
+            "comparison": "isNotEqualTo",
+            "value": ""
+          },
+          "name": "MetricsIngress"
+        },
+        {
+          "type": 10,
+          "content": {
+            "chartId": "workbook-storage-egress",
+            "version": "MetricsItem/2.0",
+            "size": 0,
+            "chartType": 2,
+            "resourceType": "microsoft.storage/storageaccounts",
+            "metricScope": 0,
+            "resourceParameter": "SelectedStorageForMetrics",
+            "resourceIds": [
+              "{SelectedStorageForMetrics}"
+            ],
+            "timeContextFromParameter": "TimeRange",
+            "timeContext": {
+              "durationMs": 2592000000
+            },
+            "metrics": [
+              {
+                "namespace": "microsoft.storage/storageaccounts",
+                "metric": "microsoft.storage/storageaccounts-Transaction-Egress",
+                "aggregation": 1
+              }
+            ],
+            "title": "Egress (Dados de Saída)",
+            "showOpenInMe": true,
+            "gridSettings": {
+              "rowLimit": 10000
+            }
+          },
+          "customWidth": "50",
+          "conditionalVisibility": {
+            "parameterName": "SelectedStorageForMetrics",
+            "comparison": "isNotEqualTo",
+            "value": ""
+          },
+          "name": "MetricsEgress"
+        },
+        {
+          "type": 1,
+          "content": {
+            "json": "---\n### 🔍 Como identificar contas sem uso\n\n1. Selecione uma VNET acima para filtrar as contas\n2. Clique em uma conta na grid para carregar as métricas\n3. **Transações** em 0 → ninguém está acessando\n4. **Capacidade Utilizada** > 0 com Transações = 0 → verificar migração antes da remoção\n5. **Ingress/Egress** em 0 → sem tráfego\n\n> ⚠️ **Atenção**: Antes de remover um Storage Account, verifique se não há processos batch, pipelines ou backups que acessam a conta periodicamente (semanal, mensal)."
+          },
+          "conditionalVisibility": {
+            "parameterName": "SelectedStorageForMetrics",
+            "comparison": "isNotEqualTo",
+            "value": ""
+          },
+          "name": "UsageGuidance"
+        }
+      ]
+    },
+    "conditionalVisibility": {
+      "parameterName": "selectedTab",
+      "comparison": "isEqualTo",
+      "value": "usage"
+    },
+    "name": "UsageGroup"
+  }

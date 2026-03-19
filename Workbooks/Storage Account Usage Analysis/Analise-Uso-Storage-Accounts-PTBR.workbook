@@ -589,36 +589,111 @@
               ],
               "timeContextFromParameter": "TimeRange",
               "timeContext": {
-                "durationMs": 2592000000
+                "durationMs": 0
               },
               "metrics": [
                 {
                   "namespace": "microsoft.storage/storageaccounts",
                   "metric": "microsoft.storage/storageaccounts-Transaction-Transactions",
                   "aggregation": 1,
-                  "splitBy": null,
                   "columnName": "Transações"
                 },
                 {
                   "namespace": "microsoft.storage/storageaccounts",
                   "metric": "microsoft.storage/storageaccounts-Transaction-Ingress",
                   "aggregation": 1,
-                  "splitBy": null,
                   "columnName": "Ingress"
                 },
                 {
                   "namespace": "microsoft.storage/storageaccounts",
                   "metric": "microsoft.storage/storageaccounts-Transaction-Egress",
                   "aggregation": 1,
-                  "splitBy": null,
                   "columnName": "Egress"
                 }
               ],
-              "resourceLimit": 200,
-              "gridFormatType": 1,
               "title": "Transações (hidden)",
+              "resourceLimit": 200,
               "gridSettings": {
-                "rowLimit": 10000
+                "formatters": [
+                  {
+                    "columnMatch": "Subscription",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Name",
+                    "formatter": 13,
+                    "formatOptions": {
+                      "linkTarget": "Resource"
+                    }
+                  },
+                  {
+                    "columnMatch": "Metric",
+                    "formatter": 1
+                  },
+                  {
+                    "columnMatch": "Aggregation",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Value",
+                    "formatter": 1
+                  },
+                  {
+                    "columnMatch": "Timeline",
+                    "formatter": 9
+                  },
+                  {
+                    "columnMatch": "microsoft.storage/storageaccounts-Transaction-Transactions",
+                    "formatter": 1,
+                    "numberFormat": {
+                      "unit": 0,
+                      "options": null
+                    }
+                  },
+                  {
+                    "columnMatch": "microsoft.storage/storageaccounts-Transaction-Ingress",
+                    "formatter": 1,
+                    "numberFormat": {
+                      "unit": 2,
+                      "options": null
+                    }
+                  },
+                  {
+                    "columnMatch": "microsoft.storage/storageaccounts-Transaction-Egress",
+                    "formatter": 1,
+                    "numberFormat": {
+                      "unit": 2,
+                      "options": null
+                    }
+                  }
+                ],
+                "rowLimit": 10000,
+                "labelSettings": [
+                  {
+                    "columnId": "Transações",
+                    "label": "Transações"
+                  },
+                  {
+                    "columnId": "Transações Timeline",
+                    "label": "Transações Timeline"
+                  },
+                  {
+                    "columnId": "Ingress",
+                    "label": "Ingress"
+                  },
+                  {
+                    "columnId": "Ingress Timeline",
+                    "label": "Ingress Timeline"
+                  },
+                  {
+                    "columnId": "Egress",
+                    "label": "Egress"
+                  },
+                  {
+                    "columnId": "Egress Timeline",
+                    "label": "Egress Timeline"
+                  }
+                ]
               }
             },
             "conditionalVisibility": {
@@ -650,14 +725,42 @@
                   "namespace": "microsoft.storage/storageaccounts",
                   "metric": "microsoft.storage/storageaccounts-Capacity-UsedCapacity",
                   "aggregation": 4,
-                  "splitBy": null,
                   "columnName": "Capacidade Usada"
                 }
               ],
-              "resourceLimit": 200,
-              "gridFormatType": 1,
               "title": "Capacidade (hidden)",
+              "gridFormatType": 1,
+              "resourceLimit": 200,
               "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Subscription",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Name",
+                    "formatter": 13,
+                    "formatOptions": {
+                      "linkTarget": "Resource"
+                    }
+                  },
+                  {
+                    "columnMatch": "Metric",
+                    "formatter": 1
+                  },
+                  {
+                    "columnMatch": "Aggregation",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Value",
+                    "formatter": 1
+                  },
+                  {
+                    "columnMatch": "Timeline",
+                    "formatter": 9
+                  }
+                ],
                 "rowLimit": 10000
               }
             },
@@ -672,7 +775,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "{\"version\":\"Merge/1.0\",\"merges\":[{\"id\":\"a1b2c3d4-0001-0001-0001-000000000001\",\"mergeType\":\"leftouter\",\"leftTable\":\"MetricsTransactionsGrid\",\"rightTable\":\"MetricsCapacityGrid\",\"leftColumn\":\"Name\",\"rightColumn\":\"Name\"}],\"projectRename\":[{\"originalName\":\"[MetricsTransactionsGrid].Name\",\"mergedName\":\"Storage Account\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsTransactionsGrid].Transações\",\"mergedName\":\"Transações\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsTransactionsGrid].Ingress\",\"mergedName\":\"Ingress\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsTransactionsGrid].Egress\",\"mergedName\":\"Egress\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].Capacidade Usada\",\"mergedName\":\"Capacidade Usada\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].Name\"},{\"originalName\":\"[MetricsTransactionsGrid].Subscription\"},{\"originalName\":\"[MetricsTransactionsGrid].Namespace\"},{\"originalName\":\"[MetricsTransactionsGrid].Metric\"},{\"originalName\":\"[MetricsTransactionsGrid].Metric ID\"},{\"originalName\":\"[MetricsTransactionsGrid].Aggregation\"},{\"originalName\":\"[MetricsTransactionsGrid].Segment Field\"},{\"originalName\":\"[MetricsTransactionsGrid].Segment\"},{\"originalName\":\"[MetricsTransactionsGrid].Timeline\"},{\"originalName\":\"[MetricsCapacityGrid].Subscription\"},{\"originalName\":\"[MetricsCapacityGrid].Namespace\"},{\"originalName\":\"[MetricsCapacityGrid].Metric\"},{\"originalName\":\"[MetricsCapacityGrid].Metric ID\"},{\"originalName\":\"[MetricsCapacityGrid].Aggregation\"},{\"originalName\":\"[MetricsCapacityGrid].Segment Field\"},{\"originalName\":\"[MetricsCapacityGrid].Segment\"},{\"originalName\":\"[MetricsCapacityGrid].Timeline\"}]}",
+              "query": "{\"version\":\"Merge/1.0\",\"merges\":[{\"id\":\"a1b2c3d4-0001-0001-0001-000000000001\",\"mergeType\":\"leftouter\",\"leftTable\":\"MetricsTransactionsGrid\",\"rightTable\":\"MetricsCapacityGrid\",\"leftColumn\":\"Name\",\"rightColumn\":\"Name\"}],\"projectRename\":[{\"originalName\":\"[MetricsTransactionsGrid].Subscription\",\"mergedName\":\"Subscription\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsTransactionsGrid].Name\",\"mergedName\":\"Name\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsTransactionsGrid].Transações\",\"mergedName\":\"Transações\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsTransactionsGrid].Transações Timeline\",\"mergedName\":\"Transações Timeline\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsTransactionsGrid].Ingress\",\"mergedName\":\"Ingress\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsTransactionsGrid].Ingress Timeline\",\"mergedName\":\"Ingress Timeline\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsTransactionsGrid].Egress\",\"mergedName\":\"Egress\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsTransactionsGrid].Egress Timeline\",\"mergedName\":\"Egress Timeline\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].Subscription\",\"mergedName\":\"Subscription1\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].Name\",\"mergedName\":\"Name1\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].Namespace\",\"mergedName\":\"Namespace\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].Metric\",\"mergedName\":\"Metric\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].Metric ID\",\"mergedName\":\"Metric ID\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].Aggregation\",\"mergedName\":\"Aggregation\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].Segment Field\",\"mergedName\":\"Segment Field\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].Segment\",\"mergedName\":\"Segment\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].Value\",\"mergedName\":\"Value\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].Timeline\",\"mergedName\":\"Timeline\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].$gen_group\"},{\"originalName\":\"[MetricsTransactionsGrid].Subscription\"},{\"originalName\":\"[MetricsTransactionsGrid].Name\"},{\"originalName\":\"[MetricsTransactionsGrid].Namespace\"},{\"originalName\":\"[MetricsTransactionsGrid].Metric\"},{\"originalName\":\"[MetricsTransactionsGrid].Metric ID\"},{\"originalName\":\"[MetricsTransactionsGrid].Aggregation\"},{\"originalName\":\"[MetricsTransactionsGrid].Segment Field\"},{\"originalName\":\"[MetricsTransactionsGrid].Segment\"},{\"originalName\":\"[MetricsTransactionsGrid].Timeline\"},{\"originalName\":\"[MetricsCapacityGrid].Subscription\"},{\"originalName\":\"[MetricsCapacityGrid].Name\"},{\"originalName\":\"[MetricsCapacityGrid].Namespace\"},{\"originalName\":\"[MetricsCapacityGrid].Metric\"},{\"originalName\":\"[MetricsCapacityGrid].Metric ID\"},{\"originalName\":\"[MetricsCapacityGrid].Aggregation\"},{\"originalName\":\"[MetricsCapacityGrid].Segment Field\"},{\"originalName\":\"[MetricsCapacityGrid].Segment\"},{\"originalName\":\"[MetricsCapacityGrid].Timeline\"}]}",
               "size": 0,
               "showAnalytics": true,
               "title": "📊 Comparação de Métricas — Storage Accounts na VNET",
@@ -681,7 +784,7 @@
               "gridSettings": {
                 "formatters": [
                   {
-                    "columnMatch": "Storage Account",
+                    "columnMatch": "Name",
                     "formatter": 13,
                     "formatOptions": {
                       "linkTarget": "Resource",
@@ -743,28 +846,68 @@
                         "maximumFractionDigits": 2
                       }
                     }
+                  },
+                  {
+                    "columnMatch": "Subscription",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Subscription1",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Name1",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Namespace",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Metric",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Metric ID",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Aggregation",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Segment Field",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Segment",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Value",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Timeline",
+                    "formatter": 5
                   }
                 ],
                 "rowLimit": 10000,
                 "filter": true,
                 "sortBy": [
                   {
-                    "itemKey": "Transações",
-                    "sortOrder": 2
+                    "itemKey": "$gen_heatmap_Transações_2",
+                    "sortOrder": 1
                   }
                 ],
                 "labelSettings": [
                   {
-                    "columnId": "Storage Account",
+                    "columnId": "Name",
                     "label": "Storage Account"
                   },
                   {
                     "columnId": "Transações",
                     "label": "Transações (Total)"
-                  },
-                  {
-                    "columnId": "Capacidade Usada",
-                    "label": "Capacidade (Avg)"
                   },
                   {
                     "columnId": "Ingress",
@@ -778,8 +921,8 @@
               },
               "sortBy": [
                 {
-                  "itemKey": "Transações",
-                  "sortOrder": 2
+                  "itemKey": "$gen_heatmap_Transações_2",
+                  "sortOrder": 1
                 }
               ]
             },
