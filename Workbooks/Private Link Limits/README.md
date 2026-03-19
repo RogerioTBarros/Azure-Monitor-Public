@@ -30,8 +30,10 @@ This folder contains an Azure Monitor Workbook designed to help customers identi
 
 ### 🌐 Hub-Spoke Analysis
 - Discovers VNET peering relationships automatically
-- Shows each VNET's PE count against the correct effective limit (1,000 for standalone, 4,000 for peered)
-- Full peering relationship table
+- Shows **aggregated** PE count: Own PEs + Peer PEs = Group Total, compared against the 4,000 limit
+- Hub VNETs with 0 own PEs appear correctly (query starts from VNETs, not PEs)
+- Click "View VNETs" to see the list of peered VNET names
+- Full peering relationship table with connection state
 
 ### 🔍 VNET Detail
 - Dropdown to select a specific VNET
@@ -74,7 +76,8 @@ Deploy as part of an ARM/Bicep template using `Microsoft.Insights/workbooks` res
 - PE-to-VNET mapping is derived from `properties.subnet.id`
 - Target resource type is extracted from `privateLinkServiceConnections[].privateLinkServiceId`
 - The By Resource Type tab uses a **summary-first + drill-down** pattern to work around ARG's 1,000-row query limit
-- Hub-Spoke analysis uses `leftouter` join instead of `fullouter` to avoid ARG's limitation with string comparison operators
+- Hub-Spoke analysis starts from VNETs (not PEs) to ensure hub VNETs with 0 own PEs appear, then aggregates Own + Peer PE counts against the 4,000 limit
+- Color palettes use `greenRed` (low=green, high=red) for all usage/percentage formatters
 
 ## Language Versions
 
