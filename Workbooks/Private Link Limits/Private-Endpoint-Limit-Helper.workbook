@@ -1,0 +1,1152 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "# 🔒 Private Endpoint Limit Helper\n\nThis workbook helps you identify Virtual Networks (VNETs) approaching their Private Endpoint (PE) limits and drill down into the resources consuming those endpoints.\n\n| Scope | Limit |\n|---|---|\n| Private Endpoints per VNET | **1,000** |\n| Private Endpoints across peered VNETs (hub-spoke) | **4,000** |\n| Private Endpoints per subscription | **64,000** |\n\n> **Source**: [Azure subscription and service limits – Private Link limits](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-subscription-service-limits#private-link-limits)"
+      },
+      "name": "Header"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "a1b2c3d4-0001-0001-0001-000000000001",
+            "version": "KqlParameterItem/1.0",
+            "name": "Subscriptions",
+            "type": 6,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "value": [
+              "value::all"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "includeAll": true,
+              "showDefault": false
+            }
+          },
+          {
+            "id": "a1b2c3d4-0001-0001-0001-000000000002",
+            "version": "KqlParameterItem/1.0",
+            "name": "WarningThreshold",
+            "label": "Warning Threshold (%)",
+            "type": 1,
+            "isRequired": true,
+            "value": "70",
+            "typeSettings": {
+              "paramValidationRules": [
+                {
+                  "regExp": "^[0-9]{1,3}$",
+                  "match": true,
+                  "message": "Enter a number between 0 and 100"
+                }
+              ]
+            }
+          },
+          {
+            "id": "a1b2c3d4-0001-0001-0001-000000000003",
+            "version": "KqlParameterItem/1.0",
+            "name": "CriticalThreshold",
+            "label": "Critical Threshold (%)",
+            "type": 1,
+            "isRequired": true,
+            "value": "90",
+            "typeSettings": {
+              "paramValidationRules": [
+                {
+                  "regExp": "^[0-9]{1,3}$",
+                  "match": true,
+                  "message": "Enter a number between 0 and 100"
+                }
+              ]
+            }
+          }
+        ],
+        "style": "pills",
+        "queryType": 1,
+        "resourceType": "microsoft.resourcegraph/resources"
+      },
+      "name": "GlobalParameters"
+    },
+    {
+      "type": 11,
+      "content": {
+        "version": "LinkItem/1.0",
+        "style": "tabs",
+        "links": [
+          {
+            "id": "tab-overview",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "📊 Overview",
+            "subTarget": "overview",
+            "style": "link"
+          },
+          {
+            "id": "tab-hubspoke",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "🌐 Hub-Spoke Analysis",
+            "subTarget": "hubspoke",
+            "style": "link"
+          },
+          {
+            "id": "tab-vnet-detail",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "🔍 VNET Detail",
+            "subTarget": "vnetdetail",
+            "style": "link"
+          },
+          {
+            "id": "tab-by-resource-type",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "📦 By Resource Type",
+            "subTarget": "byresourcetype",
+            "style": "link"
+          },
+          {
+            "id": "tab-by-subscription",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "📋 By Subscription",
+            "subTarget": "bysubscription",
+            "style": "link"
+          }
+        ]
+      },
+      "name": "TabNavigation"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## Overview — Private Endpoints per VNET\n\nThis view shows all VNETs ranked by the number of Private Endpoints, with usage percentage relative to the **1,000 PE per VNET** limit. Use the thresholds above to customize warning/critical levels."
+            },
+            "name": "OverviewDescription"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| extend vnetId = strcat('/subscriptions/', peSubId, '/resourceGroups/', peRG, '/providers/Microsoft.Network/virtualNetworks/', vnetName)\r\n| summarize PECount = count() by vnetId, vnetName, peSubId, peRG\r\n| extend PctUsed = round(todouble(PECount) / 1000.0 * 100, 1)\r\n| extend Status = case(\r\n    PctUsed >= {CriticalThreshold}, '🔴 Critical',\r\n    PctUsed >= {WarningThreshold}, '🟡 Warning',\r\n    '🟢 OK')\r\n| join kind=leftouter (\r\n    resourcecontainers\r\n    | where type =~ 'microsoft.resources/subscriptions'\r\n    | project peSubId = subscriptionId, SubName = name\r\n) on peSubId\r\n| project Status, vnetName, SubName, peRG, PECount, PctUsed, Remaining = 1000 - PECount, vnetId\r\n| order by PECount desc",
+              "size": 0,
+              "showAnalytics": true,
+              "title": "Top VNETs by Private Endpoint Count (Limit: 1,000 per VNET)",
+              "exportFieldName": "vnetId",
+              "exportParameterName": "SelectedVnetId",
+              "showExportToExcel": true,
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscriptions}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Status",
+                    "formatter": 1
+                  },
+                  {
+                    "columnMatch": "PECount",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 1000,
+                      "palette": "redGreen",
+                      "compositeBarSettings": {
+                        "labelText": "",
+                        "columnSettings": []
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "PctUsed",
+                    "formatter": 3,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "redGreen"
+                    },
+                    "numberFormat": {
+                      "unit": 1,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 1
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "Remaining",
+                    "formatter": 1
+                  },
+                  {
+                    "columnMatch": "vnetId",
+                    "formatter": 13,
+                    "formatOptions": {
+                      "linkTarget": "Resource",
+                      "showIcon": true
+                    }
+                  }
+                ],
+                "rowLimit": 1000,
+                "filter": true,
+                "sortBy": [
+                  {
+                    "itemKey": "PECount",
+                    "sortOrder": 2
+                  }
+                ],
+                "labelSettings": [
+                  {
+                    "columnId": "Status",
+                    "label": "Status"
+                  },
+                  {
+                    "columnId": "vnetName",
+                    "label": "VNET Name"
+                  },
+                  {
+                    "columnId": "SubName",
+                    "label": "Subscription"
+                  },
+                  {
+                    "columnId": "peRG",
+                    "label": "Resource Group"
+                  },
+                  {
+                    "columnId": "PECount",
+                    "label": "PE Count"
+                  },
+                  {
+                    "columnId": "PctUsed",
+                    "label": "% Used"
+                  },
+                  {
+                    "columnId": "Remaining",
+                    "label": "Remaining"
+                  },
+                  {
+                    "columnId": "vnetId",
+                    "label": "VNET Resource"
+                  }
+                ]
+              },
+              "sortBy": [
+                {
+                  "itemKey": "PECount",
+                  "sortOrder": 2
+                }
+              ]
+            },
+            "name": "OverviewGrid"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| summarize PECount = count() by vnetName\r\n| order by PECount desc\r\n| take 20",
+              "size": 1,
+              "title": "Top 20 VNETs by PE Count",
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscriptions}"
+              ],
+              "visualization": "barchart",
+              "chartSettings": {
+                "xAxis": "vnetName",
+                "yAxis": [
+                  "PECount"
+                ],
+                "showLegend": true,
+                "ySettings": {
+                  "numberFormatSettings": {
+                    "unit": 0,
+                    "options": {
+                      "style": "decimal",
+                      "useGrouping": true
+                    }
+                  }
+                }
+              }
+            },
+            "name": "OverviewChart"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| summarize TotalPEs = count()\r\n| extend Title = 'Total Private Endpoints'",
+              "size": 3,
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscriptions}"
+              ],
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {
+                  "columnMatch": "Title",
+                  "formatter": 1
+                },
+                "rightContent": {
+                  "columnMatch": "TotalPEs",
+                  "formatter": 12,
+                  "formatOptions": {
+                    "palette": "auto"
+                  }
+                },
+                "showBorder": true
+              }
+            },
+            "customWidth": "25",
+            "name": "TileTotalPEs"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| summarize PECount = count() by vnetName\r\n| summarize VNETsWithPEs = count()\r\n| extend Title = 'VNETs with PEs'",
+              "size": 3,
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscriptions}"
+              ],
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {
+                  "columnMatch": "Title",
+                  "formatter": 1
+                },
+                "rightContent": {
+                  "columnMatch": "VNETsWithPEs",
+                  "formatter": 12,
+                  "formatOptions": {
+                    "palette": "auto"
+                  }
+                },
+                "showBorder": true
+              }
+            },
+            "customWidth": "25",
+            "name": "TileVNETCount"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| summarize PECount = count() by vnetName\r\n| where PECount >= ({WarningThreshold} * 10)\r\n| summarize AtRiskVNETs = count()\r\n| extend Title = strcat('VNETs >= ', {WarningThreshold}, '% Used')",
+              "size": 3,
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscriptions}"
+              ],
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {
+                  "columnMatch": "Title",
+                  "formatter": 1
+                },
+                "rightContent": {
+                  "columnMatch": "AtRiskVNETs",
+                  "formatter": 12,
+                  "formatOptions": {
+                    "palette": "redDark"
+                  }
+                },
+                "showBorder": true
+              }
+            },
+            "customWidth": "25",
+            "name": "TileAtRiskVNETs"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| summarize PECount = count() by vnetName\r\n| summarize MaxPEsInSingleVNET = max(PECount)\r\n| extend Title = 'Max PEs in single VNET'",
+              "size": 3,
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscriptions}"
+              ],
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {
+                  "columnMatch": "Title",
+                  "formatter": 1
+                },
+                "rightContent": {
+                  "columnMatch": "MaxPEsInSingleVNET",
+                  "formatter": 12,
+                  "formatOptions": {
+                    "palette": "auto"
+                  }
+                },
+                "showBorder": true
+              }
+            },
+            "customWidth": "25",
+            "name": "TileMaxPEs"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "overview"
+      },
+      "name": "OverviewGroup"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## Hub-Spoke Analysis — Peered VNET Private Endpoint Aggregation\n\nIn hub-spoke architectures, the combined PE count across peered VNETs is limited to **4,000**. This view groups VNETs by their peering relationships and calculates the combined PE usage.\n\n> **How it works**: The query discovers all VNET peering relationships and groups the hub + its peered spokes together. The total PE count across the group is compared against the 4,000 limit.\n\n> ⚠️ **Note**: A VNET that has no peerings is shown as its own group with the standard 1,000 limit."
+            },
+            "name": "HubSpokeDescription"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "// Step 1: Get all PE counts per VNET\r\nresources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| extend vnetId = tolower(strcat('/subscriptions/', peSubId, '/resourceGroups/', peRG, '/providers/Microsoft.Network/virtualNetworks/', vnetName))\r\n| summarize PECount = count() by vnetId, vnetName\r\n| join kind=fullouter (\r\n    // Step 2: Get all peering relationships\r\n    resources\r\n    | where type =~ 'microsoft.network/virtualnetworks'\r\n    | mv-expand peering = properties.virtualNetworkPeerings\r\n    | extend localVnetId = tolower(id)\r\n    | extend remoteVnetId = tolower(tostring(peering.properties.remoteVirtualNetwork.id))\r\n    | project localVnetId, remoteVnetId\r\n    | extend PeeringGroupKey = iff(localVnetId < remoteVnetId, strcat(localVnetId, '|', remoteVnetId), strcat(remoteVnetId, '|', localVnetId))\r\n) on $left.vnetId == $right.localVnetId\r\n| extend effectiveVnetId = coalesce(vnetId, localVnetId)\r\n| extend effectiveName = coalesce(vnetName, extract(@'/virtualnetworks/(.+)$', 1, effectiveVnetId))\r\n| extend hasPeering = isnotempty(remoteVnetId)\r\n| extend effectiveLimit = iff(hasPeering, 4000, 1000)\r\n| project effectiveVnetId, effectiveName, PECount = coalesce(PECount, 0), remoteVnetId, hasPeering, effectiveLimit\r\n| summarize TotalPEs = sum(PECount), VNETs = make_set(effectiveName), VNETCount = dcount(effectiveVnetId), Limit = max(effectiveLimit) by Hub = coalesce(effectiveVnetId, 'standalone')\r\n| extend PctUsed = round(todouble(TotalPEs) / todouble(Limit) * 100, 1)\r\n| extend Status = case(\r\n    PctUsed >= {CriticalThreshold}, '🔴 Critical',\r\n    PctUsed >= {WarningThreshold}, '🟡 Warning',\r\n    '🟢 OK')\r\n| extend Remaining = Limit - TotalPEs\r\n| project Status, Hub, VNETCount, TotalPEs, Limit, PctUsed, Remaining, VNETs\r\n| order by TotalPEs desc",
+              "size": 0,
+              "showAnalytics": true,
+              "title": "Peered VNET Groups — Combined PE Usage (Limit: 4,000 for peered VNETs)",
+              "showExportToExcel": true,
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscriptions}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Status",
+                    "formatter": 1
+                  },
+                  {
+                    "columnMatch": "Hub",
+                    "formatter": 13,
+                    "formatOptions": {
+                      "linkTarget": "Resource",
+                      "showIcon": true
+                    }
+                  },
+                  {
+                    "columnMatch": "TotalPEs",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 4000,
+                      "palette": "redGreen"
+                    }
+                  },
+                  {
+                    "columnMatch": "PctUsed",
+                    "formatter": 3,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "redGreen"
+                    },
+                    "numberFormat": {
+                      "unit": 1,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 1
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "VNETs",
+                    "formatter": 7,
+                    "formatOptions": {
+                      "linkTarget": "CellDetails",
+                      "linkLabel": "📋 View VNETs",
+                      "linkIsContextBlade": true
+                    }
+                  }
+                ],
+                "rowLimit": 500,
+                "filter": true,
+                "labelSettings": [
+                  {
+                    "columnId": "Status",
+                    "label": "Status"
+                  },
+                  {
+                    "columnId": "Hub",
+                    "label": "Hub/Group VNET"
+                  },
+                  {
+                    "columnId": "VNETCount",
+                    "label": "VNETs in Group"
+                  },
+                  {
+                    "columnId": "TotalPEs",
+                    "label": "Total PEs"
+                  },
+                  {
+                    "columnId": "Limit",
+                    "label": "Limit"
+                  },
+                  {
+                    "columnId": "PctUsed",
+                    "label": "% Used"
+                  },
+                  {
+                    "columnId": "Remaining",
+                    "label": "Remaining"
+                  },
+                  {
+                    "columnId": "VNETs",
+                    "label": "VNETs in Group"
+                  }
+                ]
+              }
+            },
+            "name": "HubSpokeGrid"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where type =~ 'microsoft.network/virtualnetworks'\r\n| mv-expand peering = properties.virtualNetworkPeerings\r\n| extend localVnet = name\r\n| extend localVnetId = tolower(id)\r\n| extend remoteVnetId = tolower(tostring(peering.properties.remoteVirtualNetwork.id))\r\n| extend remoteName = extract(@'/virtualnetworks/(.+)$', 1, remoteVnetId)\r\n| extend peeringState = tostring(peering.properties.peeringState)\r\n| extend peeringName = tostring(peering.name)\r\n| project localVnet, remoteName, peeringState, peeringName, localVnetId, remoteVnetId\r\n| order by localVnet asc",
+              "size": 0,
+              "showAnalytics": true,
+              "title": "All VNET Peering Relationships",
+              "showExportToExcel": true,
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscriptions}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "peeringState",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Connected",
+                          "representation": "success",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "warning",
+                          "text": "{0}{1}"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "localVnetId",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "remoteVnetId",
+                    "formatter": 5
+                  }
+                ],
+                "filter": true,
+                "labelSettings": [
+                  {
+                    "columnId": "localVnet",
+                    "label": "Local VNET"
+                  },
+                  {
+                    "columnId": "remoteName",
+                    "label": "Remote VNET"
+                  },
+                  {
+                    "columnId": "peeringState",
+                    "label": "Peering State"
+                  },
+                  {
+                    "columnId": "peeringName",
+                    "label": "Peering Name"
+                  }
+                ]
+              }
+            },
+            "name": "PeeringRelationships"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "hubspoke"
+      },
+      "name": "HubSpokeGroup"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## VNET Detail — Drill Down into Private Endpoints\n\nSelect a VNET below to see all Private Endpoints deployed in it, their target resources, subnets, and connection status."
+            },
+            "name": "VnetDetailDescription"
+          },
+          {
+            "type": 9,
+            "content": {
+              "version": "KqlParameterItem/1.0",
+              "parameters": [
+                {
+                  "id": "a1b2c3d4-0002-0002-0002-000000000001",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "SelectedVnet",
+                  "label": "Select VNET",
+                  "type": 2,
+                  "isRequired": true,
+                  "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| extend vnetId = strcat('/subscriptions/', peSubId, '/resourceGroups/', peRG, '/providers/Microsoft.Network/virtualNetworks/', vnetName)\r\n| summarize PECount = count() by vnetId, vnetName\r\n| order by PECount desc\r\n| project value = vnetId, label = strcat(vnetName, ' (', PECount, ' PEs)'), selected = false",
+                  "crossComponentResources": [
+                    "{Subscriptions}"
+                  ],
+                  "typeSettings": {
+                    "additionalResourceOptions": [],
+                    "showDefault": false
+                  },
+                  "queryType": 1,
+                  "resourceType": "microsoft.resourcegraph/resources"
+                }
+              ],
+              "style": "pills",
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources"
+            },
+            "name": "VnetSelector"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| extend vnetId = strcat('/subscriptions/', peSubId, '/resourceGroups/', peRG, '/providers/Microsoft.Network/virtualNetworks/', vnetName)\r\n| where vnetId =~ '{SelectedVnet}'\r\n| summarize PECount = count()\r\n| extend Limit = 1000\r\n| extend PctUsed = round(todouble(PECount) / 1000.0 * 100, 1)\r\n| extend Remaining = 1000 - PECount\r\n| project PECount, Limit, PctUsed, Remaining",
+              "size": 3,
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscriptions}"
+              ],
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {
+                  "formatter": 1
+                },
+                "leftContent": {
+                  "columnMatch": "PECount",
+                  "formatter": 12,
+                  "formatOptions": {
+                    "palette": "auto"
+                  },
+                  "numberFormat": {
+                    "unit": 17,
+                    "options": {
+                      "style": "decimal",
+                      "maximumFractionDigits": 0
+                    }
+                  }
+                },
+                "rightContent": {
+                  "columnMatch": "PctUsed",
+                  "formatter": 12,
+                  "formatOptions": {
+                    "palette": "redGreen"
+                  },
+                  "numberFormat": {
+                    "unit": 1,
+                    "options": {
+                      "style": "decimal",
+                      "maximumFractionDigits": 1
+                    }
+                  }
+                },
+                "secondaryContent": {
+                  "columnMatch": "Remaining",
+                  "formatter": 1,
+                  "formatOptions": {}
+                },
+                "showBorder": true
+              }
+            },
+            "customWidth": "50",
+            "name": "VnetSummaryTile"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| extend vnetId = strcat('/subscriptions/', peSubId, '/resourceGroups/', peRG, '/providers/Microsoft.Network/virtualNetworks/', vnetName)\r\n| where vnetId =~ '{SelectedVnet}'\r\n| summarize PECount = count() by subnetName\r\n| order by PECount desc",
+              "size": 1,
+              "title": "PE Distribution by Subnet",
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscriptions}"
+              ],
+              "visualization": "piechart"
+            },
+            "customWidth": "50",
+            "name": "SubnetDistribution"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| extend vnetId = strcat('/subscriptions/', peSubId, '/resourceGroups/', peRG, '/providers/Microsoft.Network/virtualNetworks/', vnetName)\r\n| where vnetId =~ '{SelectedVnet}'\r\n| mv-expand connection = properties.privateLinkServiceConnections\r\n| extend targetResourceId = tostring(connection.properties.privateLinkServiceId)\r\n| extend targetResourceType = extract(@'/providers/([^/]+/[^/]+)', 1, targetResourceId)\r\n| extend targetResourceName = extract(@'/([^/]+)$', 1, targetResourceId)\r\n| extend connectionStatus = tostring(connection.properties.privateLinkServiceConnectionState.status)\r\n| extend groupIds = tostring(connection.properties.groupIds)\r\n| project PEName = name, subnetName, targetResourceName, targetResourceType, connectionStatus, groupIds, resourceGroup, targetResourceId, id\r\n| order by targetResourceType asc, PEName asc",
+              "size": 0,
+              "showAnalytics": true,
+              "title": "Private Endpoints in Selected VNET — Full Detail",
+              "showExportToExcel": true,
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscriptions}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "connectionStatus",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Approved",
+                          "representation": "success",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Pending",
+                          "representation": "pending",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Rejected",
+                          "representation": "stopped",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "unknown",
+                          "text": "{0}{1}"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "targetResourceId",
+                    "formatter": 13,
+                    "formatOptions": {
+                      "linkTarget": "Resource",
+                      "showIcon": true
+                    }
+                  },
+                  {
+                    "columnMatch": "id",
+                    "formatter": 13,
+                    "formatOptions": {
+                      "linkTarget": "Resource",
+                      "showIcon": true
+                    }
+                  }
+                ],
+                "rowLimit": 1000,
+                "filter": true,
+                "labelSettings": [
+                  {
+                    "columnId": "PEName",
+                    "label": "PE Name"
+                  },
+                  {
+                    "columnId": "subnetName",
+                    "label": "Subnet"
+                  },
+                  {
+                    "columnId": "targetResourceName",
+                    "label": "Target Resource"
+                  },
+                  {
+                    "columnId": "targetResourceType",
+                    "label": "Resource Type"
+                  },
+                  {
+                    "columnId": "connectionStatus",
+                    "label": "Connection Status"
+                  },
+                  {
+                    "columnId": "groupIds",
+                    "label": "Group IDs (subresource)"
+                  },
+                  {
+                    "columnId": "resourceGroup",
+                    "label": "PE Resource Group"
+                  },
+                  {
+                    "columnId": "targetResourceId",
+                    "label": "Target Resource ID"
+                  },
+                  {
+                    "columnId": "id",
+                    "label": "PE Resource"
+                  }
+                ]
+              }
+            },
+            "name": "VnetDetailGrid"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| extend vnetId = strcat('/subscriptions/', peSubId, '/resourceGroups/', peRG, '/providers/Microsoft.Network/virtualNetworks/', vnetName)\r\n| where vnetId =~ '{SelectedVnet}'\r\n| mv-expand connection = properties.privateLinkServiceConnections\r\n| extend targetResourceId = tostring(connection.properties.privateLinkServiceId)\r\n| extend targetResourceType = extract(@'/providers/([^/]+/[^/]+)', 1, targetResourceId)\r\n| summarize PECount = count() by targetResourceType\r\n| order by PECount desc",
+              "size": 1,
+              "title": "PE Count by Target Resource Type (Selected VNET)",
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscriptions}"
+              ],
+              "visualization": "piechart"
+            },
+            "name": "VnetResourceTypePie"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "vnetdetail"
+      },
+      "name": "VnetDetailGroup"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## By Resource Type — Which services consume the most Private Endpoints?\n\nThis view groups all Private Endpoints by the type of Azure resource they connect to, helping identify which services are the biggest consumers."
+            },
+            "name": "ByResourceTypeDescription"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| mv-expand connection = properties.privateLinkServiceConnections\r\n| extend targetResourceId = tostring(connection.properties.privateLinkServiceId)\r\n| extend targetResourceType = extract(@'/providers/([^/]+/[^/]+)', 1, targetResourceId)\r\n| summarize PECount = count() by targetResourceType\r\n| order by PECount desc",
+              "size": 0,
+              "showAnalytics": true,
+              "title": "Private Endpoints by Target Resource Type",
+              "showExportToExcel": true,
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscriptions}"
+              ],
+              "visualization": "barchart",
+              "chartSettings": {
+                "xAxis": "targetResourceType",
+                "yAxis": [
+                  "PECount"
+                ],
+                "showLegend": true
+              }
+            },
+            "name": "ResourceTypeChart"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| mv-expand connection = properties.privateLinkServiceConnections\r\n| extend targetResourceId = tostring(connection.properties.privateLinkServiceId)\r\n| extend targetResourceType = extract(@'/providers/([^/]+/[^/]+)', 1, targetResourceId)\r\n| extend targetResourceName = extract(@'/([^/]+)$', 1, targetResourceId)\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| project PEName = name, targetResourceType, targetResourceName, vnetName, subnetName, resourceGroup, targetResourceId, id\r\n| order by targetResourceType asc, vnetName asc",
+              "size": 0,
+              "showAnalytics": true,
+              "title": "All Private Endpoints — Grouped by Resource Type",
+              "showExportToExcel": true,
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscriptions}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "targetResourceId",
+                    "formatter": 13,
+                    "formatOptions": {
+                      "linkTarget": "Resource",
+                      "showIcon": true
+                    }
+                  },
+                  {
+                    "columnMatch": "id",
+                    "formatter": 13,
+                    "formatOptions": {
+                      "linkTarget": "Resource",
+                      "showIcon": true
+                    }
+                  }
+                ],
+                "rowLimit": 1000,
+                "filter": true,
+                "hierarchySettings": {
+                  "treeType": 1,
+                  "groupBy": [
+                    "targetResourceType"
+                  ],
+                  "expandTopLevel": false
+                },
+                "labelSettings": [
+                  {
+                    "columnId": "PEName",
+                    "label": "PE Name"
+                  },
+                  {
+                    "columnId": "targetResourceType",
+                    "label": "Resource Type"
+                  },
+                  {
+                    "columnId": "targetResourceName",
+                    "label": "Target Resource"
+                  },
+                  {
+                    "columnId": "vnetName",
+                    "label": "VNET"
+                  },
+                  {
+                    "columnId": "subnetName",
+                    "label": "Subnet"
+                  },
+                  {
+                    "columnId": "resourceGroup",
+                    "label": "PE Resource Group"
+                  },
+                  {
+                    "columnId": "targetResourceId",
+                    "label": "Target Resource"
+                  },
+                  {
+                    "columnId": "id",
+                    "label": "PE Resource"
+                  }
+                ]
+              }
+            },
+            "name": "ResourceTypeDetailGrid"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "byresourcetype"
+      },
+      "name": "ByResourceTypeGroup"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## By Subscription — Private Endpoint Distribution\n\nThis view shows PE usage aggregated per subscription, helping identify which subscriptions have the highest PE density. The per-subscription limit is **64,000**."
+            },
+            "name": "BySubscriptionDescription"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| summarize PECount = count() by subscriptionId\r\n| join kind=leftouter (\r\n    resourcecontainers\r\n    | where type =~ 'microsoft.resources/subscriptions'\r\n    | project subscriptionId, SubName = name\r\n) on subscriptionId\r\n| extend PctOfLimit = round(todouble(PECount) / 64000.0 * 100, 2)\r\n| project SubName, subscriptionId, PECount, PctOfLimit, Remaining = 64000 - PECount\r\n| order by PECount desc",
+              "size": 0,
+              "showAnalytics": true,
+              "title": "Private Endpoints per Subscription (Limit: 64,000)",
+              "showExportToExcel": true,
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscriptions}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "PECount",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "palette": "blue"
+                    }
+                  },
+                  {
+                    "columnMatch": "PctOfLimit",
+                    "formatter": 3,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "redGreen"
+                    },
+                    "numberFormat": {
+                      "unit": 1,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 2
+                      }
+                    }
+                  }
+                ],
+                "filter": true,
+                "labelSettings": [
+                  {
+                    "columnId": "SubName",
+                    "label": "Subscription Name"
+                  },
+                  {
+                    "columnId": "subscriptionId",
+                    "label": "Subscription ID"
+                  },
+                  {
+                    "columnId": "PECount",
+                    "label": "PE Count"
+                  },
+                  {
+                    "columnId": "PctOfLimit",
+                    "label": "% of 64K Limit"
+                  },
+                  {
+                    "columnId": "Remaining",
+                    "label": "Remaining"
+                  }
+                ]
+              }
+            },
+            "name": "BySubscriptionGrid"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| summarize PECount = count() by subscriptionId, vnetName\r\n| join kind=leftouter (\r\n    resourcecontainers\r\n    | where type =~ 'microsoft.resources/subscriptions'\r\n    | project subscriptionId, SubName = name\r\n) on subscriptionId\r\n| project SubName, vnetName, PECount\r\n| order by SubName asc, PECount desc",
+              "size": 0,
+              "showAnalytics": true,
+              "title": "PE Count by Subscription and VNET",
+              "showExportToExcel": true,
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscriptions}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "PECount",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "palette": "blue"
+                    }
+                  }
+                ],
+                "filter": true,
+                "hierarchySettings": {
+                  "treeType": 1,
+                  "groupBy": [
+                    "SubName"
+                  ],
+                  "expandTopLevel": true
+                },
+                "labelSettings": [
+                  {
+                    "columnId": "SubName",
+                    "label": "Subscription"
+                  },
+                  {
+                    "columnId": "vnetName",
+                    "label": "VNET"
+                  },
+                  {
+                    "columnId": "PECount",
+                    "label": "PE Count"
+                  }
+                ]
+              }
+            },
+            "name": "BySubscriptionVnetGrid"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| summarize PECount = count() by subscriptionId\r\n| join kind=leftouter (\r\n    resourcecontainers\r\n    | where type =~ 'microsoft.resources/subscriptions'\r\n    | project subscriptionId, SubName = name\r\n) on subscriptionId\r\n| project SubName, PECount\r\n| order by PECount desc",
+              "size": 1,
+              "title": "PE Distribution Across Subscriptions",
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscriptions}"
+              ],
+              "visualization": "piechart"
+            },
+            "name": "BySubscriptionPie"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "bysubscription"
+      },
+      "name": "BySubscriptionGroup"
+    }
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json",
+  "fallbackResourceIds": [
+    "Azure Monitor"
+  ]
+}
