@@ -210,6 +210,8 @@
               "size": 0,
               "showAnalytics": true,
               "title": "VNETs com Storage Accounts (clique para detalhes)",
+              "exportFieldName": "vnetId",
+              "exportParameterName": "SelectedVNET",
               "showExportToExcel": true,
               "queryType": 1,
               "resourceType": "microsoft.resourcegraph/resources",
@@ -318,9 +320,7 @@
                     "label": ""
                   }
                 ]
-              },
-              "exportFieldName": "vnetId",
-              "exportParameterName": "SelectedVNET"
+              }
             },
             "name": "VNETSummaryGrid"
           },
@@ -541,6 +541,8 @@
               "size": 0,
               "showAnalytics": true,
               "title": "Storage Accounts na VNET — clique para ver métricas",
+              "exportFieldName": "targetResourceId",
+              "exportParameterName": "SelectedStorageForMetrics",
               "showExportToExcel": true,
               "queryType": 1,
               "resourceType": "microsoft.resourcegraph/resources",
@@ -662,9 +664,7 @@
                     "label": ""
                   }
                 ]
-              },
-              "exportFieldName": "targetResourceId",
-              "exportParameterName": "SelectedStorageForMetrics"
+              }
             },
             "conditionalVisibility": {
               "parameterName": "UsageVNET",
