@@ -1,24 +1,33 @@
 # Análise de Uso de Storage Accounts com Private Endpoints
 
-Workbook do Azure Monitor para identificar Storage Accounts que possuem Private Endpoints e analisar seus padrões de uso, ajudando a identificar contas sem uso como candidatas à remoção ou realocação.
+Workbook do Azure Monitor para identificar Storage Accounts que possuem Private Endpoints, organizados **por VNET** — já que o limite de PEs é por VNET (1.000/VNET). Permite análise de uso via métricas do Azure Monitor para identificar contas sem uso como candidatas à remoção ou realocação.
 
-## Objetivo
+## Problema
 
-Em ambientes com muitos Private Endpoints, a maioria costuma pertencer a Storage Accounts. Este workbook ajuda a responder:
+Em ambientes com milhares de Storage Accounts (5k+), cada um com Private Endpoints, é difícil ter visibilidade sobre quais contas realmente estão em uso. Como o limite de PEs é por VNET, a navegação centrada em VNET é essencial para:
 
-- **Quais Storage Accounts possuem Private Endpoints?**
-- **Estão sendo utilizados?** (via métricas de Transactions)
-- **Qual o ambiente (Produção, Desenvolvimento, etc.)?** (via tags `ambiente`/`environment`)
-- **Em quais VNETs estão conectados?**
-- **Qual o volume de dados armazenado?** (via UsedCapacity)
+- **Quais VNETs estão próximas do limite de PEs?** (% do limite de 1.000)
+- **Quais Storage Accounts estão em cada VNET?** (drill-down por clique)
+- **Estão sendo utilizados?** (via métricas de Transactions — clique para ver)
+- **Qual o ambiente?** (via tags `ambiente`/`environment`)
 
 ## Tabs
 
 | Tab | Descrição |
 |-----|-----------|
-| **📋 Inventário** | Grid com todos os Storage Accounts que possuem PEs, mostrando ambiente, VNET, sub-rede, assinatura, grupo de recursos, tipo, SKU. Tiles de resumo. |
-| **📊 Análise de Uso** | Selecione Storage Accounts para ver métricas do Azure Monitor: **Transactions**, **UsedCapacity**, **Ingress**, **Egress** ao longo do tempo. |
+| **📋 Inventário por VNET** | Grid de VNETs com contagem de Storage Accounts, PEs (storage e total), % do limite de 1.000. Clique em uma VNET para drill-down nos Storage Accounts. |
+| **📊 Análise de Uso** | Dropdown de VNET → grid de Storage Accounts filtrada → clique em uma conta → métricas de **Transactions**, **UsedCapacity**, **Ingress**, **Egress**. |
 | **🏷️ Por Ambiente** | Distribuição por tag de ambiente. Pie chart + grid resumo + detalhe agrupado. |
+
+## Fluxo de Análise
+
+```
+1. Tab Inventário     →  Selecione a VNET com mais PEs
+2. Grid de detalhes   →  Veja os Storage Accounts nessa VNET (agrupados por ambiente)
+3. Tab Análise de Uso →  Selecione a mesma VNET no dropdown
+4. Grid de contas     →  Clique em uma conta para carregar métricas
+5. Métricas           →  Transactions=0 por 30d → candidata à remoção
+```
 
 ## Métricas Utilizadas
 
@@ -31,29 +40,31 @@ Em ambientes com muitos Private Endpoints, a maioria costuma pertencer a Storage
 
 > **Fonte**: [Métricas do Azure Storage no Azure Monitor](https://learn.microsoft.com/pt-br/azure/storage/common/storage-metrics-in-azure-monitor)
 
+## Navegação para Ambientes Grandes (5.000+ contas)
+
+O workbook usa navegação em camadas para lidar com grande volume de contas:
+
+1. **VNET como filtro primário** — reduz 5k+ para ~10-200 contas por VNET
+2. **Grid com filtro** — busca textual dentro da grid filtrada
+3. **Clique para métricas** — carrega métricas apenas para a conta clicada (evita sobrecarga)
+
+### Evolução Futura: ARM Data Source + Merge
+
+Para trazer métricas (ex: total de Transactions) **direto na grid** sem precisar clicar, é possível usar:
+
+1. **Azure Resource Manager data source** do Workbook para chamar `GET {resourceId}/providers/Microsoft.Insights/metrics?metricnames=Transactions&interval=FULL&aggregation=total` para cada conta na VNET
+2. **Merge step** para combinar os resultados do ARG (inventário) com os do ARM (métricas) em uma única grid
+
+Referências:
+- [Parameters as Datasets (CloudSMA)](https://www.cloudsma.com/2023/10/advanced-azure-workbooks-parameters-as-datasets/)
+- [Workbooks Data Sources — Merge](https://learn.microsoft.com/en-us/azure/azure-monitor/visualize/workbooks-data-sources#merge)
+- [Workbooks Data Sources — Azure Resource Manager](https://learn.microsoft.com/en-us/azure/azure-monitor/visualize/workbooks-data-sources#azure-resource-manager)
+
 ## Requisitos
 
 - **Acesso mínimo**: Role **Reader** nas assinaturas (inclui `Microsoft.Insights/metrics/read`)
 - **Tags suportadas**: `ambiente`, `Ambiente`, `AMBIENTE`, `environment`, `Environment`, `ENVIRONMENT`
 - **Idioma**: Português (Brasil)
-
-## Como Usar
-
-1. Abra o workbook no Azure Portal
-2. Selecione as assinaturas desejadas
-3. Na tab **Inventário**, veja todos os Storage Accounts com PEs
-4. Na tab **Análise de Uso**, selecione contas específicas para verificar métricas
-5. Contas com **0 Transactions** durante 30 dias são candidatas à remoção
-6. Na tab **Por Ambiente**, priorize ambientes de dev/hml para análise
-
-## Como Identificar Contas para Remoção
-
-1. **Transactions = 0** por 30+ dias → ninguém está acessando
-2. **UsedCapacity > 0** com **Transactions = 0** → dados armazenados sem acesso ativo (verificar se precisa migrar)
-3. **UsedCapacity = 0** com **Transactions = 0** → candidato direto à remoção
-4. **Ambiente = dev/hml/stg** → priorizar análise de ambientes não-produtivos
-
-> ⚠️ **Atenção**: Sempre verifique se não existem processos batch, pipelines ou backups que acessam a conta periodicamente antes de remover.
 
 ## Instalação
 

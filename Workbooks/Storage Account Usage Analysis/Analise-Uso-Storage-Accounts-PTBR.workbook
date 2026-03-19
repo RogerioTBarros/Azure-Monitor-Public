@@ -4,7 +4,7 @@
     {
       "type": 1,
       "content": {
-        "json": "# 📦 Análise de Uso de Storage Accounts com Private Endpoints\n\nEste workbook lista os Storage Accounts que possuem Private Endpoints e permite analisar seus padrões de uso através de métricas do Azure Monitor.\n\n| Métrica | Descrição | Utilidade |\n|---|---|---|\n| **Transactions** | Total de requisições ao serviço de armazenamento | Contas com 0 transações estão sem uso |\n| **UsedCapacity** | Volume de dados armazenados | Capacidade ocupada mesmo sem transações |\n| **Ingress / Egress** | Volume de dados de entrada/saída | Tráfego de rede |\n\n> **Fonte**: [Métricas do Azure Storage no Azure Monitor](https://learn.microsoft.com/pt-br/azure/storage/common/storage-metrics-in-azure-monitor)\n>\n> Com acesso **Reader**, é possível visualizar as métricas de qualquer Storage Account via Azure Monitor sem permissões adicionais.\n\n---\n\n**Objetivo**: Identificar Storage Accounts com pouco ou nenhum uso como candidatos à remoção ou realocação para outra VNET, liberando Private Endpoints."
+        "json": "# 📦 Análise de Uso de Storage Accounts com Private Endpoints\n\nEste workbook organiza os Storage Accounts **por VNET** — já que o limite de Private Endpoints é por VNET (1.000/VNET, 4.000 peered). A navegação por VNET permite filtrar ambientes com milhares de contas.\n\n| Métrica | Descrição | Utilidade |\n|---|---|---|\n| **Transactions** | Total de requisições ao serviço de armazenamento | Contas com 0 transações estão sem uso |\n| **UsedCapacity** | Volume de dados armazenados | Capacidade ocupada mesmo sem transações |\n| **Ingress / Egress** | Volume de dados de entrada/saída | Tráfego de rede |\n\n> **Fonte**: [Métricas do Azure Storage no Azure Monitor](https://learn.microsoft.com/pt-br/azure/storage/common/storage-metrics-in-azure-monitor) · Acesso **Reader** é suficiente.\n\n**Fluxo de análise**: Selecione uma VNET no inventário → veja os Storage Accounts nessa VNET → na aba Análise de Uso, clique em uma conta para ver as métricas."
       },
       "name": "Header"
     },
@@ -72,7 +72,7 @@
             "id": "tab-inventory",
             "cellValue": "selectedTab",
             "linkTarget": "parameter",
-            "linkLabel": "📋 Inventário",
+            "linkLabel": "📋 Inventário por VNET",
             "subTarget": "inventory",
             "style": "link"
           },
@@ -105,7 +105,7 @@
           {
             "type": 1,
             "content": {
-              "json": "## Inventário — Storage Accounts com Private Endpoints\n\nTodos os Storage Accounts que possuem pelo menos um Private Endpoint. A coluna **Ambiente** é extraída das tags `ambiente` ou `environment` (case-insensitive)."
+              "json": "## Inventário por VNET — Storage Accounts com Private Endpoints\n\nO limite de PEs é **por VNET** (1.000/VNET). Abaixo, cada VNET que possui Storage Accounts com PEs. Clique em uma VNET para ver os detalhes dos Storage Accounts."
             },
             "name": "InventoryDescription"
           },
@@ -113,10 +113,237 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| mv-expand connection = properties.privateLinkServiceConnections\r\n| extend targetResourceId = tolower(tostring(connection.properties.privateLinkServiceId))\r\n| where targetResourceId contains 'microsoft.storage/storageaccounts'\r\n| extend targetName = extract(@'/([^/]+)$', 1, targetResourceId)\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| summarize PECount = count(), VNETs = make_set(vnetName), Subnets = make_set(subnetName) by targetResourceId, targetName\r\n| join kind=leftouter (\r\n    resources\r\n    | where type =~ 'microsoft.storage/storageaccounts'\r\n    | extend _tagAmb = tostring(tags.ambiente)\r\n    | extend _tagAMB = tostring(tags.Ambiente)\r\n    | extend _tagenv = tostring(tags.environment)\r\n    | extend _tagENV = tostring(tags.Environment)\r\n    | extend Ambiente = case(\r\n        isnotempty(_tagAmb), _tagAmb,\r\n        isnotempty(_tagAMB), _tagAMB,\r\n        isnotempty(_tagenv), _tagenv,\r\n        isnotempty(_tagENV), _tagENV,\r\n        'Sem tag')\r\n    | extend storageKind = kind\r\n    | extend storageSku = tostring(sku.name)\r\n    | extend accessTier = tostring(properties.accessTier)\r\n    | project storageId = tolower(id), Ambiente, storageKind, storageSku, accessTier, subscriptionId, storageRG = resourceGroup\r\n) on $left.targetResourceId == $right.storageId\r\n| join kind=leftouter (\r\n    resourcecontainers\r\n    | where type =~ 'microsoft.resources/subscriptions'\r\n    | project subscriptionId, SubName = name\r\n) on subscriptionId\r\n| extend VNETList = strcat_array(VNETs, ', ')\r\n| extend SubnetList = strcat_array(Subnets, ', ')\r\n| project Ambiente, targetName, SubName, storageRG, VNETList, SubnetList, PECount, storageKind, storageSku, accessTier, targetResourceId\r\n| order by Ambiente asc, targetName asc",
+              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| mv-expand connection = properties.privateLinkServiceConnections\r\n| extend targetResourceId = tolower(tostring(connection.properties.privateLinkServiceId))\r\n| where targetResourceId contains 'microsoft.storage/storageaccounts'\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| summarize StorageAccounts = dcount(targetResourceId), PECount = count() by vnetName, peSubId, peRG\r\n| summarize TotalVNETs = dcount(vnetName), TotalStorageAccounts = sum(StorageAccounts), TotalPEs = sum(PECount)\r\n| extend T1 = 'VNETs com PEs (Storage)', T2 = 'Storage Accounts', T3 = 'Private Endpoints (Storage)'",
+              "size": 4,
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscriptions}"
+              ],
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {
+                  "columnMatch": "T1",
+                  "formatter": 1
+                },
+                "leftContent": {
+                  "columnMatch": "TotalVNETs",
+                  "formatter": 12,
+                  "formatOptions": {
+                    "palette": "blue"
+                  }
+                },
+                "secondaryContent": {
+                  "columnMatch": "T2"
+                },
+                "showBorder": true
+              }
+            },
+            "customWidth": "33",
+            "name": "TileVNETs"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| mv-expand connection = properties.privateLinkServiceConnections\r\n| extend targetResourceId = tolower(tostring(connection.properties.privateLinkServiceId))\r\n| where targetResourceId contains 'microsoft.storage/storageaccounts'\r\n| summarize by targetResourceId\r\n| summarize TotalStorageAccounts = count()\r\n| extend Title = 'Storage Accounts com PE'",
+              "size": 4,
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscriptions}"
+              ],
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {
+                  "columnMatch": "Title",
+                  "formatter": 1
+                },
+                "leftContent": {
+                  "columnMatch": "TotalStorageAccounts",
+                  "formatter": 12,
+                  "formatOptions": {
+                    "palette": "auto"
+                  }
+                },
+                "showBorder": true
+              }
+            },
+            "customWidth": "33",
+            "name": "TileStorageAccounts"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| mv-expand connection = properties.privateLinkServiceConnections\r\n| extend targetResourceId = tolower(tostring(connection.properties.privateLinkServiceId))\r\n| where targetResourceId contains 'microsoft.storage/storageaccounts'\r\n| summarize TotalPEs = count()\r\n| extend Title = 'Total de PEs (Storage)'",
+              "size": 4,
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscriptions}"
+              ],
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {
+                  "columnMatch": "Title",
+                  "formatter": 1
+                },
+                "leftContent": {
+                  "columnMatch": "TotalPEs",
+                  "formatter": 12,
+                  "formatOptions": {
+                    "palette": "orange"
+                  }
+                },
+                "showBorder": true
+              }
+            },
+            "customWidth": "33",
+            "name": "TileTotalPEs"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| mv-expand connection = properties.privateLinkServiceConnections\r\n| extend targetResourceId = tolower(tostring(connection.properties.privateLinkServiceId))\r\n| where targetResourceId contains 'microsoft.storage/storageaccounts'\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| extend vnetId = tolower(strcat('/subscriptions/', peSubId, '/resourcegroups/', peRG, '/providers/microsoft.network/virtualnetworks/', vnetName))\r\n| summarize StorageAccounts = dcount(targetResourceId), StoragePEs = count() by vnetName, vnetId, peSubId, peRG\r\n| join kind=leftouter (\r\n    resources\r\n    | where type =~ 'microsoft.network/privateendpoints'\r\n    | extend subnetId = tostring(properties.subnet.id)\r\n    | parse kind=regex subnetId with '/subscriptions/' peSubId2 '/resourceGroups/' peRG2 '/providers/Microsoft.Network/virtualNetworks/' vnetName2 '/subnets/' subnetName2\r\n    | extend vnetId = tolower(strcat('/subscriptions/', peSubId2, '/resourcegroups/', peRG2, '/providers/microsoft.network/virtualnetworks/', vnetName2))\r\n    | summarize TotalPEs_AllTypes = count() by vnetId\r\n) on vnetId\r\n| join kind=leftouter (\r\n    resourcecontainers\r\n    | where type =~ 'microsoft.resources/subscriptions'\r\n    | project peSubId = subscriptionId, SubName = name\r\n) on peSubId\r\n| extend PctOfLimit = round(todouble(TotalPEs_AllTypes) / 1000.0 * 100.0, 1)\r\n| project vnetName, SubName, peRG, StorageAccounts, StoragePEs, TotalPEs_AllTypes, PctOfLimit, vnetId\r\n| order by TotalPEs_AllTypes desc",
               "size": 0,
               "showAnalytics": true,
-              "title": "Storage Accounts com Private Endpoints",
+              "title": "VNETs com Storage Accounts (clique para detalhes)",
+              "showExportToExcel": true,
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscriptions}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "StorageAccounts",
+                    "formatter": 4,
+                    "formatOptions": {
+                      "palette": "blue"
+                    }
+                  },
+                  {
+                    "columnMatch": "StoragePEs",
+                    "formatter": 4,
+                    "formatOptions": {
+                      "palette": "orange"
+                    }
+                  },
+                  {
+                    "columnMatch": "TotalPEs_AllTypes",
+                    "formatter": 4,
+                    "formatOptions": {
+                      "palette": "orange"
+                    }
+                  },
+                  {
+                    "columnMatch": "PctOfLimit",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "colors",
+                      "thresholdsGrid": [
+                        {
+                          "operator": ">=",
+                          "thresholdValue": "90",
+                          "representation": "redBright",
+                          "text": "{0}{1}%"
+                        },
+                        {
+                          "operator": ">=",
+                          "thresholdValue": "70",
+                          "representation": "orange",
+                          "text": "{0}{1}%"
+                        },
+                        {
+                          "operator": ">=",
+                          "thresholdValue": "50",
+                          "representation": "yellow",
+                          "text": "{0}{1}%"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "green",
+                          "text": "{0}{1}%"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "vnetId",
+                    "formatter": 5
+                  }
+                ],
+                "filter": true,
+                "sortBy": [
+                  {
+                    "itemKey": "TotalPEs_AllTypes",
+                    "sortOrder": 2
+                  }
+                ],
+                "exportFieldName": "vnetId",
+                "exportParameterName": "SelectedVNET",
+                "labelSettings": [
+                  {
+                    "columnId": "vnetName",
+                    "label": "VNET"
+                  },
+                  {
+                    "columnId": "SubName",
+                    "label": "Assinatura"
+                  },
+                  {
+                    "columnId": "peRG",
+                    "label": "Grupo de Recursos"
+                  },
+                  {
+                    "columnId": "StorageAccounts",
+                    "label": "Storage Accounts"
+                  },
+                  {
+                    "columnId": "StoragePEs",
+                    "label": "PEs (Storage)"
+                  },
+                  {
+                    "columnId": "TotalPEs_AllTypes",
+                    "label": "PEs (Total)"
+                  },
+                  {
+                    "columnId": "PctOfLimit",
+                    "label": "% do Limite (1.000)"
+                  },
+                  {
+                    "columnId": "vnetId",
+                    "label": ""
+                  }
+                ]
+              }
+            },
+            "name": "VNETSummaryGrid"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "### Storage Accounts na VNET selecionada\n\nClique em uma linha acima para ver os Storage Accounts daquela VNET."
+            },
+            "conditionalVisibility": {
+              "parameterName": "SelectedVNET",
+              "comparison": "isEqualTo",
+              "value": ""
+            },
+            "name": "SelectVNETHint"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| mv-expand connection = properties.privateLinkServiceConnections\r\n| extend targetResourceId = tolower(tostring(connection.properties.privateLinkServiceId))\r\n| where targetResourceId contains 'microsoft.storage/storageaccounts'\r\n| extend targetName = extract(@'/([^/]+)$', 1, targetResourceId)\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| extend vnetId = tolower(strcat('/subscriptions/', peSubId, '/resourcegroups/', peRG, '/providers/microsoft.network/virtualnetworks/', vnetName))\r\n| where vnetId == '{SelectedVNET}'\r\n| summarize PECount = count(), Subnets = make_set(subnetName) by targetResourceId, targetName\r\n| join kind=leftouter (\r\n    resources\r\n    | where type =~ 'microsoft.storage/storageaccounts'\r\n    | extend _tagAmb = tostring(tags.ambiente)\r\n    | extend _tagAMB = tostring(tags.Ambiente)\r\n    | extend _tagenv = tostring(tags.environment)\r\n    | extend _tagENV = tostring(tags.Environment)\r\n    | extend Ambiente = case(\r\n        isnotempty(_tagAmb), _tagAmb,\r\n        isnotempty(_tagAMB), _tagAMB,\r\n        isnotempty(_tagenv), _tagenv,\r\n        isnotempty(_tagENV), _tagENV,\r\n        'Sem tag')\r\n    | extend storageKind = kind\r\n    | extend storageSku = tostring(sku.name)\r\n    | extend accessTier = tostring(properties.accessTier)\r\n    | project storageId = tolower(id), Ambiente, storageKind, storageSku, accessTier, subscriptionId, storageRG = resourceGroup\r\n) on $left.targetResourceId == $right.storageId\r\n| join kind=leftouter (\r\n    resourcecontainers\r\n    | where type =~ 'microsoft.resources/subscriptions'\r\n    | project subscriptionId, SubName = name\r\n) on subscriptionId\r\n| extend SubnetList = strcat_array(Subnets, ', ')\r\n| project Ambiente, targetName, SubName, storageRG, SubnetList, PECount, storageKind, storageSku, accessTier, targetResourceId\r\n| order by Ambiente asc, targetName asc",
+              "size": 0,
+              "showAnalytics": true,
+              "title": "Storage Accounts na VNET selecionada",
               "showExportToExcel": true,
               "queryType": 1,
               "resourceType": "microsoft.resourcegraph/resources",
@@ -225,10 +452,6 @@
                     "label": "Grupo de Recursos"
                   },
                   {
-                    "columnId": "VNETList",
-                    "label": "VNETs"
-                  },
-                  {
                     "columnId": "SubnetList",
                     "label": "Sub-redes"
                   },
@@ -255,127 +478,12 @@
                 ]
               }
             },
-            "name": "InventoryGrid"
-          },
-          {
-            "type": 3,
-            "content": {
-              "version": "KqlItem/1.0",
-              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| mv-expand connection = properties.privateLinkServiceConnections\r\n| extend targetResourceId = tolower(tostring(connection.properties.privateLinkServiceId))\r\n| where targetResourceId contains 'microsoft.storage/storageaccounts'\r\n| extend targetName = extract(@'/([^/]+)$', 1, targetResourceId)\r\n| summarize PECount = count() by targetResourceId, targetName\r\n| summarize TotalStorageAccounts = dcount(targetResourceId)\r\n| extend Title = 'Storage Accounts com PE'",
-              "size": 4,
-              "queryType": 1,
-              "resourceType": "microsoft.resourcegraph/resources",
-              "crossComponentResources": [
-                "{Subscriptions}"
-              ],
-              "visualization": "tiles",
-              "tileSettings": {
-                "titleContent": {
-                  "columnMatch": "Title",
-                  "formatter": 1
-                },
-                "leftContent": {
-                  "columnMatch": "TotalStorageAccounts",
-                  "formatter": 12,
-                  "formatOptions": {
-                    "palette": "auto"
-                  }
-                },
-                "showBorder": true
-              }
+            "conditionalVisibility": {
+              "parameterName": "SelectedVNET",
+              "comparison": "isNotEqualTo",
+              "value": ""
             },
-            "customWidth": "25",
-            "name": "TileTotal"
-          },
-          {
-            "type": 3,
-            "content": {
-              "version": "KqlItem/1.0",
-              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| mv-expand connection = properties.privateLinkServiceConnections\r\n| extend targetResourceId = tolower(tostring(connection.properties.privateLinkServiceId))\r\n| where targetResourceId contains 'microsoft.storage/storageaccounts'\r\n| summarize by targetResourceId\r\n| join kind=leftouter (\r\n    resources\r\n    | where type =~ 'microsoft.storage/storageaccounts'\r\n    | extend _tagAmb = tostring(tags.ambiente)\r\n    | extend _tagAMB = tostring(tags.Ambiente)\r\n    | extend _tagenv = tostring(tags.environment)\r\n    | extend _tagENV = tostring(tags.Environment)\r\n    | extend Ambiente = case(\r\n        isnotempty(_tagAmb), _tagAmb,\r\n        isnotempty(_tagAMB), _tagAMB,\r\n        isnotempty(_tagenv), _tagenv,\r\n        isnotempty(_tagENV), _tagENV,\r\n        'Sem tag')\r\n    | project storageId = tolower(id), Ambiente\r\n) on $left.targetResourceId == $right.storageId\r\n| where Ambiente == 'Sem tag'\r\n| summarize SemTag = count()\r\n| extend Title = 'Sem Tag de Ambiente'",
-              "size": 4,
-              "queryType": 1,
-              "resourceType": "microsoft.resourcegraph/resources",
-              "crossComponentResources": [
-                "{Subscriptions}"
-              ],
-              "visualization": "tiles",
-              "tileSettings": {
-                "titleContent": {
-                  "columnMatch": "Title",
-                  "formatter": 1
-                },
-                "leftContent": {
-                  "columnMatch": "SemTag",
-                  "formatter": 12,
-                  "formatOptions": {
-                    "palette": "redDark"
-                  }
-                },
-                "showBorder": true
-              }
-            },
-            "customWidth": "25",
-            "name": "TileNoTag"
-          },
-          {
-            "type": 3,
-            "content": {
-              "version": "KqlItem/1.0",
-              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| mv-expand connection = properties.privateLinkServiceConnections\r\n| extend targetResourceId = tolower(tostring(connection.properties.privateLinkServiceId))\r\n| where targetResourceId contains 'microsoft.storage/storageaccounts'\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| summarize by targetResourceId, vnetName\r\n| summarize VNETsDistintas = dcount(vnetName)\r\n| extend Title = 'VNETs Distintas'",
-              "size": 4,
-              "queryType": 1,
-              "resourceType": "microsoft.resourcegraph/resources",
-              "crossComponentResources": [
-                "{Subscriptions}"
-              ],
-              "visualization": "tiles",
-              "tileSettings": {
-                "titleContent": {
-                  "columnMatch": "Title",
-                  "formatter": 1
-                },
-                "leftContent": {
-                  "columnMatch": "VNETsDistintas",
-                  "formatter": 12,
-                  "formatOptions": {
-                    "palette": "blue"
-                  }
-                },
-                "showBorder": true
-              }
-            },
-            "customWidth": "25",
-            "name": "TileVNETs"
-          },
-          {
-            "type": 3,
-            "content": {
-              "version": "KqlItem/1.0",
-              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| mv-expand connection = properties.privateLinkServiceConnections\r\n| extend targetResourceId = tolower(tostring(connection.properties.privateLinkServiceId))\r\n| where targetResourceId contains 'microsoft.storage/storageaccounts'\r\n| summarize by targetResourceId\r\n| summarize TotalPEs = count()\r\n| extend Title = 'Total de PEs (Storage)'",
-              "size": 4,
-              "queryType": 1,
-              "resourceType": "microsoft.resourcegraph/resources",
-              "crossComponentResources": [
-                "{Subscriptions}"
-              ],
-              "visualization": "tiles",
-              "tileSettings": {
-                "titleContent": {
-                  "columnMatch": "Title",
-                  "formatter": 1
-                },
-                "leftContent": {
-                  "columnMatch": "TotalPEs",
-                  "formatter": 12,
-                  "formatOptions": {
-                    "palette": "auto"
-                  }
-                },
-                "showBorder": true
-              }
-            },
-            "customWidth": "25",
-            "name": "TileTotalPEs"
+            "name": "VNETDetailGrid"
           }
         ]
       },
@@ -395,7 +503,7 @@
           {
             "type": 1,
             "content": {
-              "json": "## Análise de Uso — Métricas do Azure Monitor\n\nSelecione um ou mais Storage Accounts abaixo para visualizar as métricas de uso. Contas com **0 Transações** durante o período são candidatas à remoção ou realocação.\n\n> 💡 **Dica**: A métrica **Transactions** mostra o número total de requisições (leitura, escrita, listagem, etc.). Uma conta com 0 transações em 30 dias provavelmente não está em uso ativo.\n>\n> A métrica **UsedCapacity** mostra o volume de dados armazenados — mesmo com 0 transações, uma conta pode conter dados que precisam ser migrados antes da remoção."
+              "json": "## Análise de Uso — Métricas do Azure Monitor\n\nSelecione uma **VNET** para ver os Storage Accounts associados. Clique em uma conta na grid para ver as métricas de uso.\n\n> 💡 **Navegação**: Com 5.000+ contas, a filtragem por VNET reduz o escopo para um número gerenciável (tipicamente 10-200 por VNET). Use o filtro na grid para refinar ainda mais.\n>\n> **Transactions** = 0 por 30+ dias → candidata à remoção. **UsedCapacity** > 0 com Transactions = 0 → dados armazenados sem acesso ativo (verificar migração).\n\n---\n> 🔧 **Evolução futura**: Para trazer métricas diretamente na grid (ex: total de Transactions por conta), é possível usar o **Azure Resource Manager data source** do Workbook para chamar a API de métricas (`GET {resourceId}/providers/Microsoft.Insights/metrics?metricnames=Transactions&interval=FULL&aggregation=total`) para cada conta na VNET selecionada, e combinar via **Merge step** com os dados do ARG. Ref: [Parameters as Datasets](https://www.cloudsma.com/2023/10/advanced-azure-workbooks-parameters-as-datasets/) · [Workbooks Merge](https://learn.microsoft.com/en-us/azure/azure-monitor/visualize/workbooks-data-sources#merge)"
             },
             "name": "UsageDescription"
           },
@@ -407,26 +515,14 @@
                 {
                   "id": "c1d2e3f4-0002-0002-0002-000000000001",
                   "version": "KqlParameterItem/1.0",
-                  "name": "SelectedStorageAccounts",
-                  "label": "Storage Accounts",
-                  "type": 5,
+                  "name": "UsageVNET",
+                  "label": "VNET",
+                  "type": 2,
                   "isRequired": true,
-                  "multiSelect": true,
-                  "quote": "'",
-                  "delimiter": ",",
-                  "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| mv-expand connection = properties.privateLinkServiceConnections\r\n| extend targetResourceId = tolower(tostring(connection.properties.privateLinkServiceId))\r\n| where targetResourceId contains 'microsoft.storage/storageaccounts'\r\n| summarize PECount = count() by targetResourceId\r\n| join kind=leftouter (\r\n    resources\r\n    | where type =~ 'microsoft.storage/storageaccounts'\r\n    | project storageId = tolower(id), storageName = name\r\n) on $left.targetResourceId == $right.storageId\r\n| project value = targetResourceId, label = strcat(storageName, ' (', PECount, ' PEs)'), selected = false\r\n| order by label asc",
+                  "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| mv-expand connection = properties.privateLinkServiceConnections\r\n| extend targetResourceId = tolower(tostring(connection.properties.privateLinkServiceId))\r\n| where targetResourceId contains 'microsoft.storage/storageaccounts'\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| extend vnetId = tolower(strcat('/subscriptions/', peSubId, '/resourcegroups/', peRG, '/providers/microsoft.network/virtualnetworks/', vnetName))\r\n| summarize StorageAccounts = dcount(targetResourceId), PEs = count() by vnetId, vnetName\r\n| project value = vnetId, label = strcat(vnetName, ' (', StorageAccounts, ' contas, ', PEs, ' PEs)'), selected = false\r\n| order by label asc",
                   "crossComponentResources": [
                     "{Subscriptions}"
                   ],
-                  "typeSettings": {
-                    "additionalResourceOptions": [
-                      "value::all"
-                    ],
-                    "showDefault": false,
-                    "resourceTypeFilter": {
-                      "microsoft.storage/storageaccounts": true
-                    }
-                  },
                   "queryType": 1,
                   "resourceType": "microsoft.resourcegraph/resources"
                 }
@@ -435,7 +531,159 @@
               "queryType": 1,
               "resourceType": "microsoft.resourcegraph/resources"
             },
-            "name": "StorageSelector"
+            "name": "UsageVNETSelector"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| mv-expand connection = properties.privateLinkServiceConnections\r\n| extend targetResourceId = tolower(tostring(connection.properties.privateLinkServiceId))\r\n| where targetResourceId contains 'microsoft.storage/storageaccounts'\r\n| extend targetName = extract(@'/([^/]+)$', 1, targetResourceId)\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| extend vnetId = tolower(strcat('/subscriptions/', peSubId, '/resourcegroups/', peRG, '/providers/microsoft.network/virtualnetworks/', vnetName))\r\n| where vnetId == '{UsageVNET}'\r\n| summarize PECount = count(), Subnets = make_set(subnetName) by targetResourceId, targetName\r\n| join kind=leftouter (\r\n    resources\r\n    | where type =~ 'microsoft.storage/storageaccounts'\r\n    | extend _tagAmb = tostring(tags.ambiente)\r\n    | extend _tagAMB = tostring(tags.Ambiente)\r\n    | extend _tagenv = tostring(tags.environment)\r\n    | extend _tagENV = tostring(tags.Environment)\r\n    | extend Ambiente = case(\r\n        isnotempty(_tagAmb), _tagAmb,\r\n        isnotempty(_tagAMB), _tagAMB,\r\n        isnotempty(_tagenv), _tagenv,\r\n        isnotempty(_tagENV), _tagENV,\r\n        'Sem tag')\r\n    | extend storageKind = kind\r\n    | extend storageSku = tostring(sku.name)\r\n    | extend accessTier = tostring(properties.accessTier)\r\n    | project storageId = tolower(id), Ambiente, storageKind, storageSku, accessTier, subscriptionId, storageRG = resourceGroup\r\n) on $left.targetResourceId == $right.storageId\r\n| join kind=leftouter (\r\n    resourcecontainers\r\n    | where type =~ 'microsoft.resources/subscriptions'\r\n    | project subscriptionId, SubName = name\r\n) on subscriptionId\r\n| extend SubnetList = strcat_array(Subnets, ', ')\r\n| project Ambiente, targetName, SubName, storageRG, SubnetList, PECount, storageKind, storageSku, accessTier, targetResourceId\r\n| order by targetName asc",
+              "size": 0,
+              "showAnalytics": true,
+              "title": "Storage Accounts na VNET — clique para ver métricas",
+              "showExportToExcel": true,
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscriptions}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Ambiente",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "colors",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "contains",
+                          "thresholdValue": "prod",
+                          "representation": "red",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "contains",
+                          "thresholdValue": "prd",
+                          "representation": "red",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "contains",
+                          "thresholdValue": "dev",
+                          "representation": "blue",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "contains",
+                          "thresholdValue": "hml",
+                          "representation": "orange",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "contains",
+                          "thresholdValue": "stg",
+                          "representation": "orange",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "contains",
+                          "thresholdValue": "hom",
+                          "representation": "orange",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Sem tag",
+                          "representation": "gray",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "green",
+                          "text": "{0}{1}"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "PECount",
+                    "formatter": 4,
+                    "formatOptions": {
+                      "palette": "blue"
+                    }
+                  },
+                  {
+                    "columnMatch": "targetResourceId",
+                    "formatter": 5
+                  }
+                ],
+                "rowLimit": 1000,
+                "filter": true,
+                "exportFieldName": "targetResourceId",
+                "exportParameterName": "SelectedStorageForMetrics",
+                "labelSettings": [
+                  {
+                    "columnId": "Ambiente",
+                    "label": "Ambiente"
+                  },
+                  {
+                    "columnId": "targetName",
+                    "label": "Storage Account"
+                  },
+                  {
+                    "columnId": "SubName",
+                    "label": "Assinatura"
+                  },
+                  {
+                    "columnId": "storageRG",
+                    "label": "Grupo de Recursos"
+                  },
+                  {
+                    "columnId": "SubnetList",
+                    "label": "Sub-redes"
+                  },
+                  {
+                    "columnId": "PECount",
+                    "label": "Qtd. PEs"
+                  },
+                  {
+                    "columnId": "storageKind",
+                    "label": "Tipo"
+                  },
+                  {
+                    "columnId": "storageSku",
+                    "label": "SKU"
+                  },
+                  {
+                    "columnId": "accessTier",
+                    "label": "Camada de Acesso"
+                  },
+                  {
+                    "columnId": "targetResourceId",
+                    "label": ""
+                  }
+                ]
+              }
+            },
+            "conditionalVisibility": {
+              "parameterName": "UsageVNET",
+              "comparison": "isNotEqualTo",
+              "value": ""
+            },
+            "name": "UsageStorageGrid"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "---\n### 📈 Métricas de Uso — {SelectedStorageForMetrics:name}\n\nMétricas do Azure Monitor para o Storage Account selecionado no intervalo de **{TimeRange:label}**."
+            },
+            "conditionalVisibility": {
+              "parameterName": "SelectedStorageForMetrics",
+              "comparison": "isNotEqualTo",
+              "value": ""
+            },
+            "name": "MetricsHeader"
           },
           {
             "type": 10,
@@ -447,7 +695,7 @@
               "resourceType": "microsoft.storage/storageaccounts",
               "metricScope": 0,
               "resourceIds": [
-                "{SelectedStorageAccounts}"
+                "{SelectedStorageForMetrics}"
               ],
               "timeContextFromParameter": "TimeRange",
               "timeContext": {
@@ -467,6 +715,11 @@
                 "rowLimit": 10000
               }
             },
+            "conditionalVisibility": {
+              "parameterName": "SelectedStorageForMetrics",
+              "comparison": "isNotEqualTo",
+              "value": ""
+            },
             "customWidth": "50",
             "name": "MetricsTransactions"
           },
@@ -480,7 +733,7 @@
               "resourceType": "microsoft.storage/storageaccounts",
               "metricScope": 0,
               "resourceIds": [
-                "{SelectedStorageAccounts}"
+                "{SelectedStorageForMetrics}"
               ],
               "timeContextFromParameter": "TimeRange",
               "timeContext": {
@@ -500,6 +753,11 @@
                 "rowLimit": 10000
               }
             },
+            "conditionalVisibility": {
+              "parameterName": "SelectedStorageForMetrics",
+              "comparison": "isNotEqualTo",
+              "value": ""
+            },
             "customWidth": "50",
             "name": "MetricsUsedCapacity"
           },
@@ -513,7 +771,7 @@
               "resourceType": "microsoft.storage/storageaccounts",
               "metricScope": 0,
               "resourceIds": [
-                "{SelectedStorageAccounts}"
+                "{SelectedStorageForMetrics}"
               ],
               "timeContextFromParameter": "TimeRange",
               "timeContext": {
@@ -533,6 +791,11 @@
                 "rowLimit": 10000
               }
             },
+            "conditionalVisibility": {
+              "parameterName": "SelectedStorageForMetrics",
+              "comparison": "isNotEqualTo",
+              "value": ""
+            },
             "customWidth": "50",
             "name": "MetricsIngress"
           },
@@ -546,7 +809,7 @@
               "resourceType": "microsoft.storage/storageaccounts",
               "metricScope": 0,
               "resourceIds": [
-                "{SelectedStorageAccounts}"
+                "{SelectedStorageForMetrics}"
               ],
               "timeContextFromParameter": "TimeRange",
               "timeContext": {
@@ -566,13 +829,23 @@
                 "rowLimit": 10000
               }
             },
+            "conditionalVisibility": {
+              "parameterName": "SelectedStorageForMetrics",
+              "comparison": "isNotEqualTo",
+              "value": ""
+            },
             "customWidth": "50",
             "name": "MetricsEgress"
           },
           {
             "type": 1,
             "content": {
-              "json": "---\n### 🔍 Como identificar contas sem uso\n\n1. Selecione uma ou mais contas acima\n2. Verifique o gráfico **Transações ao Longo do Tempo** — linhas planas em 0 indicam ausência de uso\n3. Verifique **Capacidade Utilizada** — contas com dados armazenados precisam de migração antes da remoção\n4. **Ingress/Egress** em 0 confirmam que não há tráfego de dados\n\n> ⚠️ **Atenção**: Antes de remover um Storage Account, verifique se não há processos batch, pipelines ou backups que acessam a conta periodicamente (semanal, mensal)."
+              "json": "---\n### 🔍 Como identificar contas sem uso\n\n1. Selecione uma VNET acima para filtrar as contas\n2. Clique em uma conta na grid para carregar as métricas\n3. **Transações** em 0 → ninguém está acessando\n4. **Capacidade Utilizada** > 0 com Transações = 0 → verificar migração antes da remoção\n5. **Ingress/Egress** em 0 → sem tráfego\n\n> ⚠️ **Atenção**: Antes de remover um Storage Account, verifique se não há processos batch, pipelines ou backups que acessam a conta periodicamente (semanal, mensal)."
+            },
+            "conditionalVisibility": {
+              "parameterName": "SelectedStorageForMetrics",
+              "comparison": "isNotEqualTo",
+              "value": ""
             },
             "name": "UsageGuidance"
           }
