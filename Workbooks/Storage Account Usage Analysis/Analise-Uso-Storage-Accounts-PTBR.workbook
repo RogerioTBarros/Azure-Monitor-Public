@@ -896,6 +896,8 @@
               "size": 0,
               "showAnalytics": true,
               "title": "Resumo por Ambiente",
+              "exportFieldName": "Ambiente",
+              "exportParameterName": "SelectedAmbiente",
               "showExportToExcel": true,
               "queryType": 1,
               "resourceType": "microsoft.resourcegraph/resources",
@@ -946,10 +948,10 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| mv-expand connection = properties.privateLinkServiceConnections\r\n| extend targetResourceId = tolower(tostring(connection.properties.privateLinkServiceId))\r\n| where targetResourceId contains 'microsoft.storage/storageaccounts'\r\n| extend targetName = extract(@'/([^/]+)$', 1, targetResourceId)\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| summarize PECount = count(), VNETs = make_set(vnetName) by targetResourceId, targetName\r\n| join kind=leftouter (\r\n    resources\r\n    | where type =~ 'microsoft.storage/storageaccounts'\r\n    | extend _tagAmb = tostring(tags.ambiente)\r\n    | extend _tagAMB = tostring(tags.Ambiente)\r\n    | extend _tagenv = tostring(tags.environment)\r\n    | extend _tagENV = tostring(tags.Environment)\r\n    | extend Ambiente = case(\r\n        isnotempty(_tagAmb), _tagAmb,\r\n        isnotempty(_tagAMB), _tagAMB,\r\n        isnotempty(_tagenv), _tagenv,\r\n        isnotempty(_tagENV), _tagENV,\r\n        'Sem tag')\r\n    | extend storageKind = kind\r\n    | extend storageSku = tostring(sku.name)\r\n    | project storageId = tolower(id), Ambiente, storageKind, storageSku, subscriptionId, storageRG = resourceGroup\r\n) on $left.targetResourceId == $right.storageId\r\n| join kind=leftouter (\r\n    resourcecontainers\r\n    | where type =~ 'microsoft.resources/subscriptions'\r\n    | project subscriptionId, SubName = name\r\n) on subscriptionId\r\n| extend VNETList = strcat_array(VNETs, ', ')\r\n| project Ambiente, targetName, SubName, storageRG, VNETList, PECount, storageKind, storageSku, targetResourceId\r\n| order by Ambiente asc, targetName asc",
+              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| mv-expand connection = properties.privateLinkServiceConnections\r\n| extend targetResourceId = tolower(tostring(connection.properties.privateLinkServiceId))\r\n| where targetResourceId contains 'microsoft.storage/storageaccounts'\r\n| extend targetName = extract(@'/([^/]+)$', 1, targetResourceId)\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| summarize PECount = count(), VNETs = make_set(vnetName) by targetResourceId, targetName\r\n| join kind=leftouter (\r\n    resources\r\n    | where type =~ 'microsoft.storage/storageaccounts'\r\n    | extend _tagAmb = tostring(tags.ambiente)\r\n    | extend _tagAMB = tostring(tags.Ambiente)\r\n    | extend _tagenv = tostring(tags.environment)\r\n    | extend _tagENV = tostring(tags.Environment)\r\n    | extend Ambiente = case(\r\n        isnotempty(_tagAmb), _tagAmb,\r\n        isnotempty(_tagAMB), _tagAMB,\r\n        isnotempty(_tagenv), _tagenv,\r\n        isnotempty(_tagENV), _tagENV,\r\n        'Sem tag')\r\n    | extend storageKind = kind\r\n    | extend storageSku = tostring(sku.name)\r\n    | project storageId = tolower(id), Ambiente, storageKind, storageSku, subscriptionId, storageRG = resourceGroup\r\n) on $left.targetResourceId == $right.storageId\r\n| join kind=leftouter (\r\n    resourcecontainers\r\n    | where type =~ 'microsoft.resources/subscriptions'\r\n    | project subscriptionId, SubName = name\r\n) on subscriptionId\r\n| extend VNETList = strcat_array(VNETs, ', ')\r\n| project Ambiente, targetName, SubName, storageRG, VNETList, PECount, storageKind, storageSku, targetResourceId\r\n| where Ambiente == '{SelectedAmbiente}'\r\n| order by targetName asc",
               "size": 0,
               "showAnalytics": true,
-              "title": "Storage Accounts por Ambiente — Detalhe",
+              "title": "Storage Accounts — {SelectedAmbiente}",
               "showExportToExcel": true,
               "queryType": 1,
               "resourceType": "microsoft.resourcegraph/resources",
@@ -976,13 +978,6 @@
                 ],
                 "rowLimit": 1000,
                 "filter": true,
-                "hierarchySettings": {
-                  "treeType": 1,
-                  "groupBy": [
-                    "Ambiente"
-                  ],
-                  "expandTopLevel": false
-                },
                 "labelSettings": [
                   {
                     "columnId": "Ambiente",
@@ -1022,6 +1017,11 @@
                   }
                 ]
               }
+            },
+            "conditionalVisibility": {
+              "parameterName": "SelectedAmbiente",
+              "comparison": "isNotEqualTo",
+              "value": ""
             },
             "name": "EnvironmentDetailGrid"
           }
