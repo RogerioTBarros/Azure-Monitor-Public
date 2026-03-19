@@ -577,7 +577,7 @@
           {
             "type": 10,
             "content": {
-              "chartId": "workbook-storage-metrics-summary",
+              "chartId": "workbook-storage-transactions-grid",
               "version": "MetricsItem/2.0",
               "size": 0,
               "chartType": 0,
@@ -601,13 +601,6 @@
                 },
                 {
                   "namespace": "microsoft.storage/storageaccounts",
-                  "metric": "microsoft.storage/storageaccounts-Capacity-UsedCapacity",
-                  "aggregation": 4,
-                  "splitBy": null,
-                  "columnName": "Capacidade Usada"
-                },
-                {
-                  "namespace": "microsoft.storage/storageaccounts",
                   "metric": "microsoft.storage/storageaccounts-Transaction-Ingress",
                   "aggregation": 1,
                   "splitBy": null,
@@ -623,12 +616,72 @@
               ],
               "resourceLimit": 200,
               "gridFormatType": 1,
+              "title": "Transações (hidden)",
+              "gridSettings": {
+                "rowLimit": 10000
+              }
+            },
+            "conditionalVisibility": {
+              "parameterName": "AlwaysHidden",
+              "comparison": "isNotEqualTo",
+              "value": ""
+            },
+            "name": "MetricsTransactionsGrid"
+          },
+          {
+            "type": 10,
+            "content": {
+              "chartId": "workbook-storage-capacity-grid",
+              "version": "MetricsItem/2.0",
+              "size": 0,
+              "chartType": 0,
+              "resourceType": "microsoft.storage/storageaccounts",
+              "metricScope": 0,
+              "resourceParameter": "UsageStorageIds",
+              "resourceIds": [
+                "{UsageStorageIds}"
+              ],
+              "timeContextFromParameter": "TimeRange",
+              "timeContext": {
+                "durationMs": 2592000000
+              },
+              "metrics": [
+                {
+                  "namespace": "microsoft.storage/storageaccounts",
+                  "metric": "microsoft.storage/storageaccounts-Capacity-UsedCapacity",
+                  "aggregation": 4,
+                  "splitBy": null,
+                  "columnName": "Capacidade Usada"
+                }
+              ],
+              "resourceLimit": 200,
+              "gridFormatType": 1,
+              "title": "Capacidade (hidden)",
+              "gridSettings": {
+                "rowLimit": 10000
+              }
+            },
+            "conditionalVisibility": {
+              "parameterName": "AlwaysHidden",
+              "comparison": "isNotEqualTo",
+              "value": ""
+            },
+            "name": "MetricsCapacityGrid"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "{\"version\":\"Merge/1.0\",\"merges\":[{\"id\":\"a1b2c3d4-0001-0001-0001-000000000001\",\"mergeType\":\"leftouter\",\"leftTable\":\"MetricsTransactionsGrid\",\"rightTable\":\"MetricsCapacityGrid\",\"leftColumn\":\"$gen_group\",\"rightColumn\":\"$gen_group\"}],\"projectRename\":[{\"originalName\":\"[MetricsTransactionsGrid].$gen_group\",\"mergedName\":\"Storage Account\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsTransactionsGrid].Transações\",\"mergedName\":\"Transações\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsTransactionsGrid].Ingress\",\"mergedName\":\"Ingress\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsTransactionsGrid].Egress\",\"mergedName\":\"Egress\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].Capacidade Usada\",\"mergedName\":\"Capacidade Usada\",\"fromId\":\"a1b2c3d4-0001-0001-0001-000000000001\"},{\"originalName\":\"[MetricsCapacityGrid].$gen_group\"},{\"originalName\":\"[MetricsTransactionsGrid].Subscription\"},{\"originalName\":\"[MetricsTransactionsGrid].Name\"},{\"originalName\":\"[MetricsTransactionsGrid].Namespace\"},{\"originalName\":\"[MetricsTransactionsGrid].Metric\"},{\"originalName\":\"[MetricsTransactionsGrid].Metric ID\"},{\"originalName\":\"[MetricsTransactionsGrid].Aggregation\"},{\"originalName\":\"[MetricsTransactionsGrid].Segment Field\"},{\"originalName\":\"[MetricsTransactionsGrid].Segment\"},{\"originalName\":\"[MetricsTransactionsGrid].Timeline\"},{\"originalName\":\"[MetricsCapacityGrid].Subscription\"},{\"originalName\":\"[MetricsCapacityGrid].Name\"},{\"originalName\":\"[MetricsCapacityGrid].Namespace\"},{\"originalName\":\"[MetricsCapacityGrid].Metric\"},{\"originalName\":\"[MetricsCapacityGrid].Metric ID\"},{\"originalName\":\"[MetricsCapacityGrid].Aggregation\"},{\"originalName\":\"[MetricsCapacityGrid].Segment Field\"},{\"originalName\":\"[MetricsCapacityGrid].Segment\"},{\"originalName\":\"[MetricsCapacityGrid].Timeline\"}]}",
+              "size": 0,
+              "showAnalytics": true,
               "title": "📊 Comparação de Métricas — Storage Accounts na VNET",
               "showExportToExcel": true,
+              "queryType": 7,
               "gridSettings": {
                 "formatters": [
                   {
-                    "columnMatch": "$gen_group",
+                    "columnMatch": "Storage Account",
                     "formatter": 13,
                     "formatOptions": {
                       "linkTarget": "Resource",
@@ -702,7 +755,7 @@
                 ],
                 "labelSettings": [
                   {
-                    "columnId": "$gen_group",
+                    "columnId": "Storage Account",
                     "label": "Storage Account"
                   },
                   {
@@ -735,7 +788,7 @@
               "comparison": "isNotEqualTo",
               "value": ""
             },
-            "name": "MetricsSummaryGrid"
+            "name": "MetricsMergedGrid"
           },
           {
             "type": 3,
