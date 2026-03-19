@@ -167,7 +167,7 @@
                     "formatOptions": {
                       "min": 0,
                       "max": 1000,
-                      "palette": "redGreen",
+                      "palette": "greenRed",
                       "compositeBarSettings": {
                         "labelText": "",
                         "columnSettings": []
@@ -180,7 +180,7 @@
                     "formatOptions": {
                       "min": 0,
                       "max": 100,
-                      "palette": "redGreen"
+                      "palette": "greenRed"
                     },
                     "numberFormat": {
                       "unit": 1,
@@ -425,7 +425,7 @@
           {
             "type": 1,
             "content": {
-              "json": "## Hub-Spoke Analysis — Peered VNET Private Endpoint Aggregation\n\nIn hub-spoke architectures, the combined PE count across peered VNETs is limited to **4,000**. This view groups VNETs by their peering relationships and calculates the combined PE usage.\n\n> **How it works**: The query discovers all VNET peering relationships and groups the hub + its peered spokes together. The total PE count across the group is compared against the 4,000 limit.\n\n> ⚠️ **Note**: A VNET that has no peerings is shown as its own group with the standard 1,000 limit."
+              "json": "## Hub-Spoke Analysis — Peered VNET Private Endpoint Aggregation\n\nIn hub-spoke architectures, the combined PE count across peered VNETs is limited to **4,000**. This view shows each peered VNET with the **aggregated** PE count (own + all peers) compared against the 4,000 limit.\n\n> **How it works**: For each VNET that has peerings, the query sums its own PE count plus the PE count of every directly peered VNET. The group total is what matters for the 4,000 limit.\n\n> **Columns**: **Own PEs** = PEs in this VNET only | **Peer PEs** = sum of PEs across all peered VNETs | **Group Total** = Own + Peer (compared against 4,000)"
             },
             "name": "HubSpokeDescription"
           },
@@ -433,10 +433,10 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "// Step 1: Get PE counts per VNET\r\nresources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| extend vnetId = tolower(strcat('/subscriptions/', peSubId, '/resourceGroups/', peRG, '/providers/Microsoft.Network/virtualNetworks/', vnetName))\r\n| summarize PECount = count() by vnetId, vnetName\r\n| join kind=leftouter (\r\n    // Step 2: Get peering relationships — each VNET with its peers\r\n    resources\r\n    | where type =~ 'microsoft.network/virtualnetworks'\r\n    | extend peeringCount = array_length(properties.virtualNetworkPeerings)\r\n    | mv-expand peering = properties.virtualNetworkPeerings\r\n    | extend localVnetId = tolower(id)\r\n    | extend remoteVnetId = tolower(tostring(peering.properties.remoteVirtualNetwork.id))\r\n    | extend remoteName = tostring(extract(@'/virtualNetworks/(.+)$', 1, remoteVnetId))\r\n    | summarize PeeredVNETs = make_set(remoteName), PeeringCount = count() by localVnetId\r\n) on $left.vnetId == $right.localVnetId\r\n| extend hasPeering = isnotempty(PeeredVNETs) and array_length(PeeredVNETs) > 0\r\n| extend Limit = iff(hasPeering, 4000, 1000)\r\n| extend PctUsed = round(todouble(PECount) / todouble(Limit) * 100, 1)\r\n| extend Status = case(\r\n    PctUsed >= {CriticalThreshold}, '🔴 Critical',\r\n    PctUsed >= {WarningThreshold}, '🟡 Warning',\r\n    '🟢 OK')\r\n| extend Remaining = Limit - PECount\r\n| project Status, vnetName, PECount, Limit, PctUsed, Remaining, PeeringCount = coalesce(PeeringCount, 0), PeeredVNETs, vnetId\r\n| order by PECount desc",
+              "query": "// Step 1: Start from all VNETs that have peerings\r\nresources\r\n| where type =~ 'microsoft.network/virtualnetworks'\r\n| where array_length(properties.virtualNetworkPeerings) > 0\r\n| extend localVnetId = tolower(id)\r\n| extend localVnetName = name\r\n| mv-expand peering = properties.virtualNetworkPeerings\r\n| extend remoteVnetId = tolower(tostring(peering.properties.remoteVirtualNetwork.id))\r\n| extend remoteName = extract(@'/virtualNetworks/(.+)$', 1, remoteVnetId)\r\n// Step 2: Get PE count for each remote peer\r\n| join kind=leftouter (\r\n    resources\r\n    | where type =~ 'microsoft.network/privateendpoints'\r\n    | extend subnetId = tostring(properties.subnet.id)\r\n    | parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n    | extend vnetId = tolower(strcat('/subscriptions/', peSubId, '/resourceGroups/', peRG, '/providers/Microsoft.Network/virtualNetworks/', vnetName))\r\n    | summarize RemotePECount = count() by vnetId\r\n) on $left.remoteVnetId == $right.vnetId\r\n// Step 3: Aggregate peer PE counts per local VNET\r\n| summarize PeerPETotal = sum(coalesce(RemotePECount, 0)), PeeredVNETs = make_set(remoteName), PeeringCount = count() by localVnetId, localVnetName\r\n// Step 4: Get own PE count\r\n| join kind=leftouter (\r\n    resources\r\n    | where type =~ 'microsoft.network/privateendpoints'\r\n    | extend subnetId = tostring(properties.subnet.id)\r\n    | parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n    | extend vnetId = tolower(strcat('/subscriptions/', peSubId, '/resourceGroups/', peRG, '/providers/Microsoft.Network/virtualNetworks/', vnetName))\r\n    | summarize OwnPECount = count() by vnetId\r\n) on $left.localVnetId == $right.vnetId\r\n| extend OwnPECount = coalesce(OwnPECount, 0)\r\n| extend GroupPETotal = OwnPECount + PeerPETotal\r\n| extend Limit = 4000\r\n| extend PctUsed = round(todouble(GroupPETotal) / 4000.0 * 100, 1)\r\n| extend Status = case(\r\n    PctUsed >= {CriticalThreshold}, '🔴 Critical',\r\n    PctUsed >= {WarningThreshold}, '🟡 Warning',\r\n    '🟢 OK')\r\n| extend Remaining = 4000 - GroupPETotal\r\n| project Status, localVnetName, OwnPECount, PeerPETotal, GroupPETotal, Limit, PctUsed, Remaining, PeeringCount, PeeredVNETs, localVnetId\r\n| order by GroupPETotal desc",
               "size": 0,
               "showAnalytics": true,
-              "title": "VNETs with PE Usage — Peered VNETs use 4,000 limit, standalone use 1,000",
+              "title": "Peered VNETs — Aggregated PE Count (Own + Peers) vs 4,000 Limit",
               "showExportToExcel": true,
               "queryType": 1,
               "resourceType": "microsoft.resourcegraph/resources",
@@ -450,7 +450,7 @@
                     "formatter": 1
                   },
                   {
-                    "columnMatch": "vnetId",
+                    "columnMatch": "localVnetId",
                     "formatter": 13,
                     "formatOptions": {
                       "linkTarget": "Resource",
@@ -458,12 +458,12 @@
                     }
                   },
                   {
-                    "columnMatch": "PECount",
+                    "columnMatch": "GroupPETotal",
                     "formatter": 8,
                     "formatOptions": {
                       "min": 0,
                       "max": 4000,
-                      "palette": "redGreen"
+                      "palette": "greenRed"
                     }
                   },
                   {
@@ -472,7 +472,7 @@
                     "formatOptions": {
                       "min": 0,
                       "max": 100,
-                      "palette": "redGreen"
+                      "palette": "greenRed"
                     },
                     "numberFormat": {
                       "unit": 1,
@@ -500,16 +500,24 @@
                     "label": "Status"
                   },
                   {
-                    "columnId": "vnetName",
+                    "columnId": "localVnetName",
                     "label": "VNET Name"
                   },
                   {
-                    "columnId": "PECount",
-                    "label": "PE Count"
+                    "columnId": "OwnPECount",
+                    "label": "Own PEs"
+                  },
+                  {
+                    "columnId": "PeerPETotal",
+                    "label": "Peer PEs"
+                  },
+                  {
+                    "columnId": "GroupPETotal",
+                    "label": "Group Total"
                   },
                   {
                     "columnId": "Limit",
-                    "label": "Effective Limit"
+                    "label": "Limit"
                   },
                   {
                     "columnId": "PctUsed",
@@ -528,7 +536,7 @@
                     "label": "Peered VNETs"
                   },
                   {
-                    "columnId": "vnetId",
+                    "columnId": "localVnetId",
                     "label": "VNET Resource"
                   }
                 ]
@@ -715,7 +723,7 @@
                   "columnMatch": "PctUsed",
                   "formatter": 12,
                   "formatOptions": {
-                    "palette": "redGreen"
+                    "palette": "greenRed"
                   },
                   "numberFormat": {
                     "unit": 1,
@@ -1188,7 +1196,7 @@
                     "formatOptions": {
                       "min": 0,
                       "max": 100,
-                      "palette": "redGreen"
+                      "palette": "greenRed"
                     },
                     "numberFormat": {
                       "unit": 1,
