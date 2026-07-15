@@ -50,12 +50,14 @@ This runbook connects from a central Hybrid Worker to multiple SQL Server instan
 ## Prerequisites
 
 1. Azure Automation Account with Hybrid Worker Group
-2. System or User-assigned Managed Identity on Automation Account
+2. **System-assigned Managed Identity on the Automation Account** (used for Azure token acquisition — see note below)
 3. Log Analytics Workspace
 4. Data Collection Endpoint (DCE)
 5. Data Collection Rule (DCR) for custom logs
 6. SQL connectivity from Hybrid Worker (port 1433)
 7. **For SQL Authentication**: Azure Key Vault with SQL credentials stored as secrets
+
+> **Hybrid Worker managed identity**: The runbook acquires Azure tokens directly from the built-in Azure Automation managed identity endpoint (`IDENTITY_ENDPOINT`) — **no Az modules are required on the worker**. When the Automation Account has a **system-assigned** managed identity, that identity is used on both cloud sandboxes and Hybrid Workers (the worker machine's own identity is not used). Assign the Azure RBAC roles to the **Automation Account's system-assigned managed identity**: **Monitoring Metrics Publisher** on the DCR (and **Key Vault Secrets User** on the Key Vault for SQL Auth). A user-assigned identity on the Automation Account is not used by this runbook.
 
 ### SQL Server Authentication Options
 

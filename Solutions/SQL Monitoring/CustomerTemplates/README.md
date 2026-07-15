@@ -80,6 +80,8 @@ The simplest way to deploy is through the Azure Portal using the ARM templates. 
 4. Click **Create**, then paste the content of `Get-SQLServerInfo-LogsIngestionApi.ps1`
 5. Click **Save → Publish**
 
+> **Managed identity note**: The runbook acquires Azure tokens directly from the built-in Azure Automation managed identity endpoint — **no Az modules are required**. Ensure the Automation Account has a **system-assigned** managed identity, and that the roles from Step 3 (Monitoring Metrics Publisher on the DCR, and Key Vault Secrets User for SQL Auth) are assigned to **that** identity.
+
 ### Step 6: Create SQL Instances Variable
 
 1. **Automation Account → Variables → Add a variable**

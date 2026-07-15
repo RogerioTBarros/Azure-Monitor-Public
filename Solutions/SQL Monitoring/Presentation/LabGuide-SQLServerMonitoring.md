@@ -134,6 +134,11 @@ Data is sent directly to a **custom Log Analytics table** (`SQLServerMonitoring_
 - Azure Connected Machine Agent (for Arc-enabled servers) — OR — Azure VM with Hybrid Worker extension
 - PowerShell 7.2+ (installed automatically by the Hybrid Worker extension)
 
+### Automation Account Requirements
+
+- **System-assigned managed identity** enabled on the Automation Account. The runbook acquires Azure tokens directly from the built-in Azure Automation managed identity endpoint (`IDENTITY_ENDPOINT`) — **no Az modules are required on the worker**. This identity is used on both cloud sandboxes and Hybrid Workers (the worker machine's own identity is not used); a user-assigned identity on the Automation Account is not used.
+- Grant the Azure RBAC roles to the Automation Account's system-assigned identity: **Monitoring Metrics Publisher** on the DCR (and **Key Vault Secrets User** on the Key Vault for SQL Authentication).
+
 ---
 
 ## 4. Lab Environment Setup
