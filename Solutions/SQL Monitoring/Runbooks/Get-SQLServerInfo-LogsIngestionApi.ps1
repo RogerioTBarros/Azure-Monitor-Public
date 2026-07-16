@@ -384,7 +384,6 @@ function Get-SqlServerData {
     
     try {
         $connection.Open()
-        Write-Host "Connected to: $SqlInstance"
         
         # Query 1: Instance Uptime
         $instanceQuery = @"
@@ -583,8 +582,9 @@ $sqlCredential = $null
 
 switch ($SqlAuthenticationType) {
     "Windows" {
-        Write-Output "Using Windows Authentication (Hybrid Worker service account)"
-        Write-Output "  Service Account: $env:USERNAME"
+        $runbookIdentity = try { [System.Security.Principal.WindowsIdentity]::GetCurrent().Name } catch { $env:USERNAME }
+        Write-Output "Using Windows Authentication (runbook identity: $runbookIdentity)"
+        Write-Output '  Note: on a domain-joined worker, remote SQL sees the worker machine account (DOMAIN\WORKER$).'
     }
     "SQL" {
         try {
@@ -606,30 +606,66 @@ $collectorName = $env:COMPUTERNAME
 $allRecords = @()
 $results = @()
 
+$instanceIndex = 0
 foreach ($sqlInstance in $SqlInstances) {
-    Write-Output "`nProcessing: $sqlInstance"
+    $instanceIndex++
+    Write-Output "`n[$instanceIndex/$($SqlInstances.Count)] $sqlInstance"
     
     $data = Get-SqlServerData -SqlInstance $sqlInstance -Credential $sqlCredential
     
     if ($data.Success) {
-        $records = ConvertTo-LogAnalyticsRecord `
+        $records = @(ConvertTo-LogAnalyticsRecord `
             -SqlInstance $sqlInstance `
             -InstanceData $data.InstanceData `
             -BackupData $data.BackupData `
             -CollectorName $collectorName `
-            -CollectionTime $collectionTime
+            -CollectionTime $collectionTime)
         
         $allRecords += $records
-        Write-Output "  Collected $($records.Count) database records"
+        
+        # Per-instance status + backup-health rollup across the collected databases
+        $dbCount    = $records.Count
+        $bkOk       = @($records | Where-Object { $_.FullBackupAlertStatus -eq 'OK' }).Count
+        $bkWarning  = @($records | Where-Object { $_.FullBackupAlertStatus -eq 'Warning' }).Count
+        $bkCritical = @($records | Where-Object { $_.FullBackupAlertStatus -eq 'Critical' }).Count
+        $bkNever    = @($records | Where-Object { $_.FullBackupAlertStatus -eq 'Never' }).Count
+        
+        Write-Output "  Authentication: OK"
+        Write-Output "  Connection:     OK"
+        Write-Output "  Databases:      $dbCount collected"
+        Write-Output "  Backup health:  $bkOk OK, $bkWarning warning, $bkCritical critical, $bkNever never"
+        Write-Output "  Status:         SUCCESS ($dbCount records)"
         
         $results += @{
-            SqlInstance = $sqlInstance
-            Status = "Success"
-            RecordCount = $records.Count
+            SqlInstance    = $sqlInstance
+            Status         = "Success"
+            RecordCount    = $dbCount
+            BackupWarning  = $bkWarning
+            BackupCritical = $bkCritical
+            BackupNever    = $bkNever
         }
     }
     else {
-        # Add error record
+        # Categorize the failure so the status is actionable
+        $errMsg = [string]$data.Error
+        $category = switch -Regex ($errMsg) {
+            'Login failed|password did not match|Cannot open database|not associated with a trusted' { 'Authentication'; break }
+            'network-related|error: 40|error: 26|server was not found|not accessible|actively refused|timeout' { 'Connection'; break }
+            default { 'Query' }
+        }
+        
+        switch ($category) {
+            'Connection'     { $authStatus = 'not reached'; $connStatus = 'FAILED' }
+            'Authentication' { $authStatus = 'FAILED'; $connStatus = 'OK (server reached)' }
+            'Query'          { $authStatus = 'OK'; $connStatus = 'OK' }
+            default          { $authStatus = 'unknown'; $connStatus = 'unknown' }
+        }
+        
+        Write-Output "  Authentication: $authStatus"
+        Write-Output "  Connection:     $connStatus"
+        Write-Output "  Status:         FAILED [$category] - $errMsg"
+        
+        # Sentinel record so the failure is visible in the workbook/table
         $errorRecord = [ordered]@{
             TimeGenerated         = $collectionTime.ToString("yyyy-MM-ddTHH:mm:ssZ")
             CollectorName         = $collectorName
@@ -647,7 +683,7 @@ foreach ($sqlInstance in $SqlInstances) {
             DatabaseCreateDate    = ""
             LastFullBackupTime    = ""
             HoursSinceFullBackup  = -1
-            LastFullBackupStatus  = "Error: $($data.Error)"
+            LastFullBackupStatus  = "Error: $errMsg"
             FullBackupAlertStatus = "Error"
             LastLogBackupTime     = ""
             MinutesSinceLogBackup = -1
@@ -655,9 +691,10 @@ foreach ($sqlInstance in $SqlInstances) {
         $allRecords += $errorRecord
         
         $results += @{
-            SqlInstance = $sqlInstance
-            Status = "Failed"
-            Error = $data.Error
+            SqlInstance   = $sqlInstance
+            Status        = "Failed"
+            Error         = $errMsg
+            ErrorCategory = $category
         }
     }
 }
@@ -680,13 +717,26 @@ else {
     Write-Warning "No records to send"
 }
 
+$succeeded = @($results | Where-Object { $_.Status -eq 'Success' }).Count
+$failed    = @($results | Where-Object { $_.Status -eq 'Failed' }).Count
+
 Write-Output "`n=== Collection Summary ==="
+Write-Output "Instances: $($results.Count) total | $succeeded succeeded | $failed failed"
 $results | ForEach-Object {
-    $status = if ($_.RecordCount) { "$($_.Status) ($($_.RecordCount) records)" } else { "$($_.Status) - $($_.Error)" }
-    Write-Output "$($_.SqlInstance): $status"
+    if ($_.Status -eq 'Success') {
+        $flags = @()
+        if ($_.BackupCritical -gt 0) { $flags += "$($_.BackupCritical) critical" }
+        if ($_.BackupNever    -gt 0) { $flags += "$($_.BackupNever) never" }
+        if ($_.BackupWarning  -gt 0) { $flags += "$($_.BackupWarning) warning" }
+        $suffix = if ($flags.Count) { "  (backups: " + ($flags -join ', ') + ")" } else { "" }
+        Write-Output ("  [OK]     {0} - {1} records{2}" -f $_.SqlInstance, $_.RecordCount, $suffix)
+    }
+    else {
+        Write-Output ("  [FAILED] {0} - [{1}] {2}" -f $_.SqlInstance, $_.ErrorCategory, $_.Error)
+    }
 }
 
-Write-Output "`nTotal records sent: $($allRecords.Count)"
-Write-Output "Collection complete!"
+Write-Output "`nTotal records sent to Azure Monitor: $($allRecords.Count)"
+Write-Output "Collection complete."
 
 #endregion Main Script
