@@ -114,6 +114,8 @@ The simplest way to deploy is through the Azure Portal using the ARM templates. 
 
 > **Note**: `SqlInstances` is not passed as a parameter — the runbook reads it automatically from the Automation Account variable created in Step 6.
 
+> **SQL permissions (Windows Auth)**: The runbook connects to SQL as the **Hybrid Worker's computer account** (`DOMAIN\WORKER$`) — grant that account, or (recommended) an **AD group** containing the worker computer accounts, **read-only** rights on each target SQL Server. See [Runbooks/README.md → SQL Server Authentication & Permissions](../Runbooks/README.md#sql-server-authentication--permissions) for the exact, documentation-grounded `GRANT` script. For **SQL Auth**, grant the same read-only rights to the SQL login stored in Key Vault.
+
 4. Run on: **Hybrid Worker** → select your group
 
 ### Step 8: Deploy Workbook

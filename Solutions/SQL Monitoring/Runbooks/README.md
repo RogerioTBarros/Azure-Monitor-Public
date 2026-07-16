@@ -59,34 +59,88 @@ This runbook connects from a central Hybrid Worker to multiple SQL Server instan
 
 > **Hybrid Worker managed identity**: The runbook acquires Azure tokens directly from the built-in Azure Automation managed identity endpoint (`IDENTITY_ENDPOINT`) — **no Az modules are required on the worker**. When the Automation Account has a **system-assigned** managed identity, that identity is used on both cloud sandboxes and Hybrid Workers (the worker machine's own identity is not used). Assign the Azure RBAC roles to the **Automation Account's system-assigned managed identity**: **Monitoring Metrics Publisher** on the DCR (and **Key Vault Secrets User** on the Key Vault for SQL Auth). A user-assigned identity on the Automation Account is not used by this runbook.
 
-### SQL Server Authentication Options
+### SQL Server Authentication & Permissions
 
-The runbook supports two authentication methods for connecting to SQL Server:
+The runbook authenticates on **two independent planes** — keep them separate:
 
-| Option | When to Use | Requirements |
-|--------|-------------|-------------|
-| **Windows Authentication** | Domain-joined SQL Servers | Hybrid Worker service account has SQL access |
-| **SQL Authentication** | Non-domain, mixed environments | Key Vault with SQL credentials |
+1. **Azure plane** (push to Azure Monitor, read Key Vault): always the **Automation Account's system-assigned managed identity** (see the managed-identity note above). Grant it *Monitoring Metrics Publisher* on the DCR and *Key Vault Secrets User* on the Key Vault.
+2. **SQL plane** (the database connection itself): a **Windows** identity or a **SQL login**, per the mode below.
 
-#### Option A: Windows Authentication
+This section covers the **SQL plane** — the identity the target SQL Servers actually see, and the permissions to grant it.
 
-Use this when:
-- SQL Servers are domain-joined
-- Hybrid Worker is domain-joined
-- Hybrid Worker service account has SQL Server permissions
+| Mode | Identity presented to SQL | Best for |
+|------|---------------------------|----------|
+| **Windows Authentication** *(recommended when domain-joined)* | The Hybrid Worker's **computer account** — `DOMAIN\WORKER$` | Domain-joined workers **and** SQL Servers |
+| **SQL Authentication** | A **SQL login** (username/password from Key Vault) | Non-domain / workgroup / mixed environments |
 
-**Pros**: No credential management, Kerberos authentication
-**Cons**: Requires domain trust between Hybrid Worker and SQL Servers
+#### Windows Authentication — what identity actually connects
 
-#### Option B: SQL Authentication with Key Vault
+The runbook connects with `Integrated Security=True` (no credentials in the connection string), so SQL Server authenticates the **Windows identity the runbook process runs as** on the Hybrid Worker:
 
-Use this when:
-- SQL Servers are not domain-joined
-- Mixed environment (some domain, some workgroup)
-- Enhanced credential security required
+- Hybrid Runbook Worker jobs **run under the local `System` account** — [Run runbooks on a Hybrid Runbook Worker](https://learn.microsoft.com/en-us/azure/automation/automation-hrw-run-runbooks#service-accounts).
+- The `System` account **"acts as the computer on the network"** and **"presents the computer's credentials to remote servers"** — [LocalSystem Account](https://learn.microsoft.com/en-us/windows/win32/services/localsystem-account).
 
-**Pros**: Works in any network topology, credentials secured in Key Vault
-**Cons**: Requires Key Vault setup and Managed Identity permissions
+So on a **domain-joined** worker, the target SQL Server sees the worker's **machine account** (`DOMAIN\WORKER$`) — a first-class Active Directory principal you can grant like any login.
+
+> If the worker is **not** domain-joined, `System` has no domain identity and Windows Authentication to a domain SQL Server will fail — use **SQL Authentication** instead.
+
+#### Recommended: grant an AD group (one principal for all workers)
+
+Rather than granting each worker's machine account on every SQL Server, create **one AD security group**, add the worker **computer accounts** to it, and grant the **group** a SQL login. Onboarding another worker then becomes an AD group-membership change with **no SQL change**.
+
+- SQL Server supports Windows **group** logins as first-class server principals — [Principals (Database Engine)](https://learn.microsoft.com/en-us/sql/relational-databases/security/authentication-access/principals-database-engine) lists *"Windows authentication login for a Windows group"*.
+- A login can be based on *"a domain user **or a Windows domain group**"*, and if a member is removed from the group its access is revoked automatically — [Create a Login](https://learn.microsoft.com/en-us/sql/relational-databases/security/authentication-access/create-a-login).
+
+Run **once per SQL instance** (use the down-level `DOMAIN\name` format — **not** UPN):
+
+```sql
+-- CONNECT SQL is granted automatically by CREATE LOGIN.
+CREATE LOGIN [CONTOSO\SQL-Monitor-Workers] FROM WINDOWS;
+
+-- Server-state read for sys.dm_os_sys_info:
+--   SQL Server 2019 and earlier -> VIEW SERVER STATE
+--   SQL Server 2022 and later    -> VIEW SERVER PERFORMANCE STATE  (VIEW SERVER STATE also works; it covers it)
+GRANT VIEW SERVER STATE TO [CONTOSO\SQL-Monitor-Workers];
+
+-- Backup history (msdb.dbo.backupset):
+USE msdb;
+CREATE USER [CONTOSO\SQL-Monitor-Workers] FOR LOGIN [CONTOSO\SQL-Monitor-Workers];
+GRANT SELECT ON OBJECT::dbo.backupset TO [CONTOSO\SQL-Monitor-Workers];
+GO
+```
+
+Add the workers to the group, then **reboot each worker** so the new group membership is present in its Kerberos token:
+
+```powershell
+Add-ADGroupMember -Identity 'SQL-Monitor-Workers' -Members 'WORKER01$','WORKER02$'
+# then reboot WORKER01 / WORKER02
+```
+
+Notes:
+- The runbook performs **read-only** queries only (`sys.dm_os_sys_info`, `sys.databases`, `msdb.dbo.backupset`) — grant nothing beyond the above.
+- `sys.databases` enumeration is covered by `VIEW ANY DATABASE`, held by the **public** role by default; add an explicit grant only if it was revoked from public.
+- The `sys.dm_os_sys_info` permission is **version-dependent** (see comment in the script above). `VIEW SERVER STATE` satisfies every supported version, so it's the safe choice for a mixed estate; tighten to `VIEW SERVER PERFORMANCE STATE` on SQL 2022+ only if required.
+- The machine-account password is **AD-managed and auto-rotated** — nothing to store or rotate.
+
+**Single-worker alternative (no group)**: grant each worker account directly — `CREATE LOGIN [CONTOSO\WORKER01$] FROM WINDOWS;` then the same `GRANT`s. Fine for one worker; the group scales better and is the recommended pattern.
+
+**Pros**: no credential management, no stored secret, Kerberos auth, zero per-machine deployment.
+**Cons**: requires domain trust between the worker(s) and the SQL Servers.
+
+#### SQL Authentication with Key Vault
+
+Use when the worker or SQL Servers are **not** domain-joined (workgroup / mixed / cross-forest). The runbook reads a SQL login's username and password from Key Vault and connects as that **SQL login**. Grant that login the same read-only permissions shown above (swap the group name for the SQL login; create it with `CREATE LOGIN <name> WITH PASSWORD = '...'`).
+
+**Pros**: works in any network topology; credentials secured in Key Vault.
+**Cons**: Key Vault + Managed Identity setup; SQL login password lifecycle to manage.
+
+#### References
+
+- [Run runbooks on a Hybrid Runbook Worker — Service accounts](https://learn.microsoft.com/en-us/azure/automation/automation-hrw-run-runbooks#service-accounts) — jobs run as local `System`
+- [LocalSystem Account](https://learn.microsoft.com/en-us/windows/win32/services/localsystem-account) — `System` presents the computer's credentials on the network
+- [Principals (Database Engine)](https://learn.microsoft.com/en-us/sql/relational-databases/security/authentication-access/principals-database-engine) — a Windows group is a server-level principal
+- [Create a Login](https://learn.microsoft.com/en-us/sql/relational-databases/security/authentication-access/create-a-login) — login from a Windows domain user or group; group-membership revocation
+- [sys.dm_os_sys_info](https://learn.microsoft.com/en-us/sql/relational-databases/system-dynamic-management-views/sys-dm-os-sys-info-transact-sql) — `VIEW SERVER STATE` / `VIEW SERVER PERFORMANCE STATE`
 
 ### Setup Steps
 

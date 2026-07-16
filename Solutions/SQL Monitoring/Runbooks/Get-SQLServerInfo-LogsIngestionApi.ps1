@@ -9,7 +9,10 @@
     using the Logs Ingestion API with Managed Identity authentication.
 
     Supports two SQL Server authentication methods:
-    - Windows Authentication: Uses Hybrid Worker service account (domain environments)
+    - Windows Authentication: connects as the Hybrid Worker's computer account (DOMAIN\WORKER$).
+      Runbook jobs run as Local System, which presents the machine account to remote SQL. Grant that
+      account -- or an AD group containing the worker computer accounts -- read-only rights on the
+      target SQL Servers. Best for domain-joined workers and SQL Servers.
     - SQL Authentication: Retrieves credentials from Azure Key Vault (non-domain/mixed environments)
 
 .PARAMETER SqlInstances

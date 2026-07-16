@@ -9,7 +9,10 @@
     using the Logs Ingestion API with Managed Identity authentication.
 
     Supports two SQL Server authentication methods:
-    - Windows Authentication: Uses Hybrid Worker service account (domain environments)
+    - Windows Authentication: connects as the Hybrid Worker's computer account (DOMAIN\WORKER$).
+      Runbook jobs run as Local System, which presents the machine account to remote SQL. Grant that
+      account -- or an AD group containing the worker computer accounts -- read-only rights on the
+      target SQL Servers. Best for domain-joined workers and SQL Servers.
     - SQL Authentication: Retrieves credentials from Azure Key Vault (non-domain/mixed environments)
 
 .PARAMETER SqlInstances
@@ -153,34 +156,42 @@ param (
 function Get-AzureAccessToken {
     <#
     .SYNOPSIS
-        Gets an Azure access token using Managed Identity.
-        Supports Azure Automation cloud sandbox (IDENTITY_ENDPOINT) and
-        Arc-enabled Hybrid Workers (localhost:40342 IMDS endpoint).
+        Gets an Azure access token using Managed Identity, dependency-free (no Az modules required).
+
+        Strategy 1 (primary): the Azure Automation managed identity endpoint (IDENTITY_ENDPOINT /
+        IDENTITY_HEADER), set on both cloud sandbox jobs and extension-based Hybrid Worker jobs.
+        When the Automation account has a system-assigned managed identity, it returns that
+        Automation account identity token. Follows the documented protocol:
+        https://learn.microsoft.com/azure/automation/enable-managed-identity-for-automation
+        (resource as a query parameter, with the REQUIRED Metadata:True and X-IDENTITY-HEADER headers).
+
+        Strategy 2 (fallback): Arc-enabled server local IMDS (localhost:40342), used only when the
+        Automation account has no managed identity and the worker uses the Arc machine identity.
     #>
     param (
         [string]$Resource = "https://monitor.azure.com/",
         [string]$ClientId
     )
-    
-    # --- Strategy 1: Azure Automation sandbox identity endpoint ---
+
+    # --- Strategy 1: Azure Automation managed identity endpoint ---
+    # Set on cloud sandboxes AND extension-based Hybrid Workers. Per the documented protocol the
+    # Metadata header MUST be present and the resource is passed as a query parameter (HTTP GET).
+    # Omitting the Metadata header causes an "Invalid URI: The hostname could not be parsed" error.
     if ($env:IDENTITY_ENDPOINT -and $env:IDENTITY_HEADER) {
         try {
-            Write-Host "Using Automation sandbox identity endpoint"
-            if ($ClientId) {
-                $tokenAuthUri = "$env:IDENTITY_ENDPOINT?resource=$Resource&client_id=$ClientId&api-version=2019-08-01"
-            }
-            else {
-                $tokenAuthUri = "$env:IDENTITY_ENDPOINT?resource=$Resource&api-version=2019-08-01"
-            }
-            
-            $response = Invoke-RestMethod -Uri $tokenAuthUri -Method Get -Headers @{
-                "X-IDENTITY-HEADER" = $env:IDENTITY_HEADER
-            } -UseBasicParsing
-            
+            Write-Host "Using Azure Automation managed identity endpoint (IDENTITY_ENDPOINT)"
+            $tokenAuthUri = $env:IDENTITY_ENDPOINT + "?resource=$Resource"
+            if ($ClientId) { $tokenAuthUri += "&client_id=$ClientId" }
+
+            $headers = New-Object "System.Collections.Generic.Dictionary[[String],[String]]"
+            $headers.Add("X-IDENTITY-HEADER", $env:IDENTITY_HEADER)
+            $headers.Add("Metadata", "True")
+
+            $response = Invoke-RestMethod -Uri $tokenAuthUri -Method Get -Headers $headers
             return $response.access_token
         }
         catch {
-            Write-Warning "Automation sandbox identity failed: $_. Falling back to Arc IMDS."
+            Write-Warning "Azure Automation identity endpoint failed: $_. Falling back to Arc IMDS."
         }
     }
     
