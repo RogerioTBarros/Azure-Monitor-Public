@@ -352,7 +352,7 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| summarize PECount = count() by vnetName\r\n| where PECount >= ({WarningThreshold} * 10)\r\n| summarize AtRiskVNETs = count()\r\n| extend Title = strcat('VNETs >= ', {WarningThreshold}, '% Uso')",
+              "query": "resources\r\n| where type =~ 'microsoft.network/privateendpoints'\r\n| extend subnetId = tostring(properties.subnet.id)\r\n| parse kind=regex subnetId with '/subscriptions/' peSubId '/resourceGroups/' peRG '/providers/Microsoft.Network/virtualNetworks/' vnetName '/subnets/' subnetName\r\n| extend vnetId = strcat('/subscriptions/', peSubId, '/resourceGroups/', peRG, '/providers/Microsoft.Network/virtualNetworks/', vnetName)\r\n| summarize PECount = count() by vnetId, vnetName\r\n| extend joinKey = tolower(vnetId)\r\n| join kind=leftouter (\r\n    resources\r\n    | where type =~ 'microsoft.network/virtualnetworks'\r\n    | project joinKey = tolower(id), HspPolicy = tostring(properties.privateEndpointVNetPolicies)\r\n) on joinKey\r\n| extend VnetLimit = iff(HspPolicy =~ 'Basic', 5000, 1000)\r\n| where PECount >= ({WarningThreshold} / 100.0 * VnetLimit)\r\n| summarize AtRiskVNETs = count()\r\n| extend Title = strcat('VNETs >= ', {WarningThreshold}, '% Uso')",
               "size": 3,
               "queryType": 1,
               "resourceType": "microsoft.resourcegraph/resources",
