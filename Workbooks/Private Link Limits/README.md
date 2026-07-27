@@ -13,31 +13,33 @@ This folder contains an Azure Monitor Workbook designed to help customers identi
 
 ## Azure Limits Covered
 
-| Scope | Limit |
-|---|---|
-| Private Endpoints per VNET | **1,000** |
-| Private Endpoints across peered VNETs (hub-spoke) | **4,000** |
-| Private Endpoints per subscription | **64,000** |
+| Scope | Standard | High Scale |
+|---|---|---|
+| Private Endpoints per VNET | **1,000** | **5,000** |
+| Private Endpoints across peered VNETs (hub-spoke) | **4,000** | **20,000** |
+| Private Endpoints per subscription | **64,000** | **64,000** |
 
-> **Reference**: [Azure subscription and service limits – Private Link limits](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-subscription-service-limits#private-link-limits)
+The workbook is **High Scale Private Endpoint (HSP) aware**: VNETs with the property `privateEndpointVNetPolicies = Basic` are detected automatically and measured against the higher limits (5,000 / 20,000). The Overview and Hub-Spoke tabs show a **Scale** column (Standard / ⚡ High Scale). The per-subscription limit is unchanged by HSP.
+
+> **References**: [Private Link limits](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-subscription-service-limits#private-link-limits) · [Increase Private Endpoint virtual network limits (High Scale)](https://learn.microsoft.com/en-us/azure/private-link/increase-private-endpoint-vnet-limits)
 
 ## Workbook Tabs
 
 ### 📊 Overview
 - Summary tiles: Total PEs, VNETs with PEs, At-Risk VNETs, Max PEs in a single VNET
-- Grid ranking all VNETs by PE count with color-coded status (OK / Warning / Critical)
+- Grid ranking all VNETs by PE count with color-coded status (OK / Warning / Critical) and a **Scale** column (Standard / ⚡ High Scale); % used and remaining are measured against each VNET's limit (1,000 or 5,000)
 - Top 20 VNETs bar chart
 
 ### 🌐 Hub-Spoke Analysis
 - Discovers VNET peering relationships automatically
-- Shows **aggregated** PE count: Own PEs + Peer PEs = Group Total, compared against the 4,000 limit
+- Shows **aggregated** PE count: Own PEs + Peer PEs = Group Total, compared against the 4,000 limit (or **20,000** for High Scale-enabled VNETs, shown in the **Scale** column)
 - Hub VNETs with 0 own PEs appear correctly (query starts from VNETs, not PEs)
 - Click "View VNETs" to see the list of peered VNET names
 - Full peering relationship table with connection state
 
 ### 🔍 VNET Detail
 - Dropdown to select a specific VNET
-- 4 tiles: PE Count, % Used, Remaining Capacity, Status
+- 4 tiles: PE Count, % Used, Remaining Capacity, Status — all measured against the selected VNET's limit (1,000 standard or 5,000 High Scale)
 - Pie charts for subnet and resource type distribution
 - Full detail grid with connection status, target resources, and direct links
 
@@ -76,7 +78,8 @@ Deploy as part of an ARM/Bicep template using `Microsoft.Insights/workbooks` res
 - PE-to-VNET mapping is derived from `properties.subnet.id`
 - Target resource type is extracted from `privateLinkServiceConnections[].privateLinkServiceId`
 - The By Resource Type tab uses a **summary-first + drill-down** pattern to work around ARG's 1,000-row query limit
-- Hub-Spoke analysis starts from VNETs (not PEs) to ensure hub VNETs with 0 own PEs appear, then aggregates Own + Peer PE counts against the 4,000 limit
+- Hub-Spoke analysis starts from VNETs (not PEs) to ensure hub VNETs with 0 own PEs appear, then aggregates Own + Peer PE counts against the 4,000 / 20,000 limit
+- **High Scale Private Endpoint detection**: reads the VNET property `properties.privateEndpointVNetPolicies` (`Basic` = HSP enabled → 5,000 / 20,000 limits); Overview joins VNETs to PEs while the VNET Detail tiles and Hub-Spoke aggregation carry the flag per VNET
 - Color palettes use `greenRed` (low=green, high=red) for all usage/percentage formatters
 
 ## Language Versions
