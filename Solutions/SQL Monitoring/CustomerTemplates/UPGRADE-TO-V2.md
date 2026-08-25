@@ -130,10 +130,27 @@ SQLServerMonitoring_CL
 `PhysicalNodeName` should contain a machine name. For a failover cluster instance, expect
 `ServerName` = the cluster virtual name and `PhysicalNodeName` = the node currently running it.
 
-> **If the new columns come back empty**, the DCR stream change has not reached the ingestion
-> endpoint yet. Wait a few minutes, run the runbook again, and re-query. Empty columns immediately
-> after a DCR update are expected; empty columns after a later run mean Step 2 did not apply — go
-> back and check the DCR JSON view.
+> **If the new columns come back empty, this is expected on the first run(s).** A DCR stream schema
+> change takes a few minutes to reach the ingestion endpoint, and until it does the new fields are
+> silently discarded — the job still reports success and the rows still arrive, just without the new
+> columns. In testing, two collection runs in the first ~4 minutes after the DCR update stored the
+> columns empty, and a run ~8 minutes after the update populated them correctly.
+>
+> Wait a few minutes, run the runbook again, and re-query. Use this to see it batch by batch:
+>
+> ```kusto
+> SQLServerMonitoring_CL
+> | where TimeGenerated > ago(1h)
+> | summarize Rows = count(),
+>             WithNode = countif(isnotempty(PhysicalNodeName)),
+>             NodeSample = any(PhysicalNodeName)
+>           by Batch = bin(TimeGenerated, 1m)
+> | order by Batch desc
+> ```
+>
+> Once a recent batch shows `WithNode` greater than zero, the upgrade is complete. If batches keep
+> showing `WithNode = 0` well after the change, Step 2 did not apply — go back and check the DCR
+> JSON view.
 
 ---
 
