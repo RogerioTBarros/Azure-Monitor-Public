@@ -1,0 +1,1598 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "# SQL Server Monitoring Dashboard (v2)\n\nData collected by the Azure Automation runbook `Get-SQLServerInfo-LogsIngestionApi.ps1` and ingested into `SQLServerMonitoring_CL` via the Logs Ingestion API.\n\n**What's new in v2**: Uptime / Availability tab (uptime %, restart events, daily availability), Azure tag filter matched on the physical node, a database-state filter that can exclude non-ONLINE databases from backup compliance, and a system-database filter that excludes `tempdb` by default.\n\n> **Tag matching requires `PhysicalNodeName`**, added to the collection at the same time as this workbook. Azure tags live on the VM / Arc machine, but a clustered instance reports only its cluster *virtual* name in `SqlInstance` and `ServerName` — neither of which is a tagged resource. `PhysicalNodeName` (`SERVERPROPERTY('ComputerNamePhysicalNetBIOS')`) is the actual computer running the instance, so it matches the tagged resource and follows an FCI across failovers. If your workspace predates that column the filter silently falls back to the older keys, which will not match for clustered instances or for entries listed by IP address.\n\n---"
+      },
+      "name": "header"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "1a2b3c4d-5e6f-7890-abcd-ef1234567890",
+            "version": "KqlParameterItem/1.0",
+            "name": "Subscription",
+            "label": "Subscription",
+            "type": 6,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "summarize by subscriptionId\n| project value = strcat('/subscriptions/', subscriptionId), label = subscriptionId",
+            "crossComponentResources": [
+              "value::selected"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "includeAll": true,
+              "showDefault": false
+            },
+            "defaultValue": "value::all",
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources"
+          },
+          {
+            "id": "2b3c4d5e-6f7a-8901-bcde-f23456789012",
+            "version": "KqlParameterItem/1.0",
+            "name": "Workspace",
+            "label": "Log Analytics Workspace",
+            "type": 5,
+            "isRequired": true,
+            "query": "resources\n| where type =~ 'microsoft.operationalinsights/workspaces'\n| project id, name, location, resourceGroup\n| order by name asc",
+            "crossComponentResources": [
+              "{Subscription}"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [],
+              "showDefault": false
+            },
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources"
+          },
+          {
+            "id": "a2b3c4d5-e6f7-8901-2345-67890abcdef0",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "label": "Time Range",
+            "type": 4,
+            "isRequired": true,
+            "typeSettings": {
+              "selectableValues": [
+                { "durationMs": 3600000 },
+                { "durationMs": 14400000 },
+                { "durationMs": 43200000 },
+                { "durationMs": 86400000 },
+                { "durationMs": 172800000 },
+                { "durationMs": 259200000 },
+                { "durationMs": 604800000 },
+                { "durationMs": 1209600000 },
+                { "durationMs": 2419200000 },
+                { "durationMs": 2592000000 },
+                { "durationMs": 5184000000 },
+                { "durationMs": 7776000000 }
+              ],
+              "allowCustom": true
+            },
+            "value": {
+              "durationMs": 604800000
+            }
+          },
+          {
+            "id": "d1e2f3a4-b5c6-7890-1234-567890abcdef",
+            "version": "KqlParameterItem/1.0",
+            "name": "TagName",
+            "label": "Tag Name",
+            "type": 1,
+            "description": "Azure resource tag used to group the SQL Server hosts — set this to your own tagging standard (for example Environment, Criticality or AppOwner). The tag is read from the Azure VM / Arc-enabled machine, and matched against the PHYSICAL node reported by SQL Server (PhysicalNodeName). For a failover cluster instance that is the ACTIVE node, so a clustered instance follows its tag across failovers. Falls back to ServerName, then to the SQL instance address, for rows collected before PhysicalNodeName existed.",
+            "isRequired": true,
+            "value": "Environment"
+          },
+          {
+            "id": "e2f3a4b5-c6d7-8901-2345-67890abcdef1",
+            "version": "KqlParameterItem/1.0",
+            "name": "TagValue",
+            "label": "Tag Value",
+            "type": 2,
+            "description": "Filter the monitored SQL Servers by the value of the tag above. Select All to disable the tag filter.",
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "resources\n| extend TagEnv = tostring(tags['{TagName}'])\n| where isnotempty(TagEnv)\n| distinct TagEnv\n| order by TagEnv asc",
+            "crossComponentResources": [
+              "{Subscription}"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "showDefault": false
+            },
+            "defaultValue": "value::all",
+            "value": [
+              "value::all"
+            ],
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources"
+          },
+          {
+            "id": "f3a4b5c6-d7e8-9012-3456-7890abcdef12",
+            "version": "KqlParameterItem/1.0",
+            "name": "TaggedHosts",
+            "label": "Hosts matching tag",
+            "type": 1,
+            "description": "Hidden helper: quoted, comma-separated list of Azure resource names carrying the selected tag values. Used by the Log Analytics queries to filter SQL instances by tag.",
+            "isHiddenWhenLocked": true,
+            "query": "resources\n| extend TagEnv = tostring(tags['{TagName}'])\n| where isnotempty(TagEnv)\n| where '*' in ({TagValue}) or TagEnv in ({TagValue})\n| summarize value = strcat(\"'\", strcat_array(make_set(tolower(name)), \"','\"), \"'\")",
+            "crossComponentResources": [
+              "{Subscription}"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": []
+            },
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources"
+          },
+          {
+            "id": "c5d6e7f8-a9b0-1234-5678-90abcdef1234",
+            "version": "KqlParameterItem/1.0",
+            "name": "AllTaggedHosts",
+            "label": "Hosts carrying the tag (any value)",
+            "type": 1,
+            "description": "Hidden helper: every Azure resource name carrying {TagName} with ANY value, ignoring the Tag Value selection. Used by the Tag Coverage section to find monitored nodes that carry no tag at all.",
+            "isHiddenWhenLocked": true,
+            "query": "resources\n| extend TagEnv = tostring(tags['{TagName}'])\n| where isnotempty(TagEnv)\n| summarize value = strcat(\"'\", strcat_array(make_set(tolower(name)), \"','\"), \"'\")",
+            "crossComponentResources": [
+              "{Subscription}"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": []
+            },
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources"
+          },
+          {
+            "id": "b3c4d5e6-f7a8-9012-3456-7890abcdef01",
+            "version": "KqlParameterItem/1.0",
+            "name": "SqlInstance",
+            "label": "SQL Instance",
+            "type": 2,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "let _hosts = dynamic([{TaggedHosts}]);\nlet _nodemap = SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend NodeRaw = coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, \"\")\n| where isnotempty(NodeRaw)\n| summarize arg_max(TimeGenerated, NodeRaw) by SqlInstance\n| project SqlInstance, KnownNode = tolower(extract(@\"^([^\\\\,.]+)\", 1, NodeRaw));\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where isnotempty(SqlInstance)\n| where SqlInstance !contains \",\" and not(SqlInstance startswith \"[\") and not(SqlInstance endswith \"]\")\n| lookup kind=leftouter _nodemap on SqlInstance\n| extend HostName = coalesce(KnownNode, tolower(extract(@\"^([^\\\\,.]+)\", 1, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| distinct SqlInstance\n| order by SqlInstance asc",
+            "timeContextFromParameter": "TimeRange",
+            "crossComponentResources": [
+              "{Workspace}"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "showDefault": false
+            },
+            "defaultValue": "value::all",
+            "value": [
+              "value::all"
+            ],
+            "queryType": 0,
+            "resourceType": "microsoft.operationalinsights/workspaces"
+          },
+          {
+            "id": "e7f8a9b0-c1d2-3456-7890-abcdef123456",
+            "version": "KqlParameterItem/1.0",
+            "name": "SystemDbs",
+            "label": "System Databases",
+            "type": 2,
+            "description": "tempdb is recreated every time SQL Server starts and can never be backed up, so it is permanently reported as Never and drags down backup compliance. It is excluded by default. master, model and msdb SHOULD be backed up, so they are only removed by the 'all system databases' option \u2014 use that for reporting, not for compliance checking.",
+            "isRequired": true,
+            "typeSettings": {
+              "additionalResourceOptions": [],
+              "showDefault": false
+            },
+            "jsonData": "[{\"value\":\"EXCLUDE_TEMPDB\",\"label\":\"Exclude tempdb (default)\"},{\"value\":\"EXCLUDE_SYSTEM\",\"label\":\"Exclude all system databases\"},{\"value\":\"INCLUDE_ALL\",\"label\":\"Include everything\"}]",
+            "value": "EXCLUDE_TEMPDB"
+          },
+          {
+            "id": "c4d5e6f7-a8b9-0123-4567-890abcdef012",
+            "version": "KqlParameterItem/1.0",
+            "name": "DatabaseName",
+            "label": "Database",
+            "type": 2,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| where '{SystemDbs}' == 'INCLUDE_ALL' or ('{SystemDbs}' == 'EXCLUDE_TEMPDB' and DatabaseName !~ \"tempdb\") or ('{SystemDbs}' == 'EXCLUDE_SYSTEM' and DatabaseName !in~ (\"master\", \"model\", \"msdb\", \"tempdb\"))\n| distinct DatabaseName\n| order by DatabaseName asc",
+            "timeContextFromParameter": "TimeRange",
+            "crossComponentResources": [
+              "{Workspace}"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "showDefault": false
+            },
+            "defaultValue": "value::all",
+            "value": [
+              "value::all"
+            ],
+            "queryType": 0,
+            "resourceType": "microsoft.operationalinsights/workspaces"
+          },
+          {
+            "id": "d6e7f8a9-b0c1-2345-6789-0abcdef12345",
+            "version": "KqlParameterItem/1.0",
+            "name": "MonitoredNodes",
+            "label": "Nodes we are collecting from",
+            "type": 1,
+            "description": "Hidden helper: quoted list of physical node names seen in the telemetry. Fed into an Azure Resource Graph query so the Tag Coverage section can list the Azure machines that run monitored SQL but carry no tag.",
+            "isHiddenWhenLocked": true,
+            "query": "SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend NodeName = tolower(extract(@\"^([^\\\\,.]+)\", 1, tostring(column_ifexists(\"PhysicalNodeName\", \"\"))))\n| where isnotempty(NodeName)\n| summarize value = strcat(\"'\", strcat_array(make_set(NodeName), \"','\"), \"'\")",
+            "timeContextFromParameter": "TimeRange",
+            "crossComponentResources": [
+              "{Workspace}"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": []
+            },
+            "queryType": 0,
+            "resourceType": "microsoft.operationalinsights/workspaces"
+          },
+          {
+            "id": "a4b5c6d7-e8f9-0123-4567-890abcdef123",
+            "version": "KqlParameterItem/1.0",
+            "name": "DbState",
+            "label": "Database State",
+            "type": 2,
+            "description": "Online only excludes OFFLINE / RESTORING / RECOVERY_PENDING / SUSPECT databases from the database and backup views. Offline databases cannot be backed up, so they otherwise stay permanently flagged as Critical or Never.",
+            "isRequired": true,
+            "typeSettings": {
+              "additionalResourceOptions": [],
+              "showDefault": false
+            },
+            "jsonData": "[{\"value\":\"ONLINE\",\"label\":\"Online only (default)\"},{\"value\":\"ALL\",\"label\":\"All states\"}]",
+            "value": "ONLINE"
+          }
+        ],
+        "style": "pills",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces"
+      },
+      "name": "parameters"
+    },
+    {
+      "type": 11,
+      "content": {
+        "version": "LinkItem/1.0",
+        "style": "tabs",
+        "links": [
+          {
+            "id": "tab-summary",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "Summary",
+            "subTarget": "Summary",
+            "style": "link"
+          },
+          {
+            "id": "tab-instances",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "Instances",
+            "subTarget": "Instances",
+            "style": "link"
+          },
+          {
+            "id": "tab-uptime",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "Uptime / Availability",
+            "subTarget": "Uptime",
+            "style": "link"
+          },
+          {
+            "id": "tab-databases",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "Databases",
+            "subTarget": "Databases",
+            "style": "link"
+          },
+          {
+            "id": "tab-backups",
+            "cellValue": "selectedTab",
+            "linkTarget": "parameter",
+            "linkLabel": "Backups",
+            "subTarget": "Backups",
+            "style": "link"
+          }
+        ]
+      },
+      "name": "tabs"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## Overview Metrics\n\nTag filter: **{TagName} = {TagValue:label}** &nbsp;|&nbsp; Database state: **{DbState:label}** &nbsp;|&nbsp; System DBs: **{SystemDbs:label}**"
+            },
+            "name": "summary-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nlet _nodemap = SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend NodeRaw = coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, \"\")\n| where isnotempty(NodeRaw)\n| summarize arg_max(TimeGenerated, NodeRaw) by SqlInstance\n| project SqlInstance, KnownNode = tolower(extract(@\"^([^\\\\,.]+)\", 1, NodeRaw));\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| lookup kind=leftouter _nodemap on SqlInstance\n| extend HostName = coalesce(KnownNode, tolower(extract(@\"^([^\\\\,.]+)\", 1, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| summarize by SqlInstance\n| count",
+              "size": 4,
+              "title": "SQL Instances",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {
+                  "columnMatch": "Count",
+                  "formatter": 12,
+                  "formatOptions": {
+                    "palette": "blue"
+                  }
+                },
+                "showBorder": true
+              }
+            },
+            "customWidth": "25",
+            "name": "tile-instances"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend HostName = tolower(extract(@\"^([^\\\\,.]+)\", 1, coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| where '{SystemDbs}' == 'INCLUDE_ALL' or ('{SystemDbs}' == 'EXCLUDE_TEMPDB' and DatabaseName !~ \"tempdb\") or ('{SystemDbs}' == 'EXCLUDE_SYSTEM' and DatabaseName !in~ (\"master\", \"model\", \"msdb\", \"tempdb\"))\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| where '{DbState}' == 'ALL' or DatabaseState == 'ONLINE'\n| count",
+              "size": 4,
+              "title": "Databases",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {
+                  "columnMatch": "Count",
+                  "formatter": 12,
+                  "formatOptions": {
+                    "palette": "green"
+                  }
+                },
+                "showBorder": true
+              }
+            },
+            "customWidth": "25",
+            "name": "tile-databases"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend HostName = tolower(extract(@\"^([^\\\\,.]+)\", 1, coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| where '{SystemDbs}' == 'INCLUDE_ALL' or ('{SystemDbs}' == 'EXCLUDE_TEMPDB' and DatabaseName !~ \"tempdb\") or ('{SystemDbs}' == 'EXCLUDE_SYSTEM' and DatabaseName !in~ (\"master\", \"model\", \"msdb\", \"tempdb\"))\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| where '{DbState}' == 'ALL' or DatabaseState == 'ONLINE'\n| where FullBackupAlertStatus in (\"Warning\", \"Critical\", \"Never\")\n| count",
+              "size": 4,
+              "title": "Backup Alerts",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {
+                  "columnMatch": "Count",
+                  "formatter": 12,
+                  "formatOptions": {
+                    "palette": "redBright"
+                  }
+                },
+                "showBorder": true
+              }
+            },
+            "customWidth": "25",
+            "name": "tile-backup-alerts"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend HostName = tolower(extract(@\"^([^\\\\,.]+)\", 1, coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| where '{SystemDbs}' == 'INCLUDE_ALL' or ('{SystemDbs}' == 'EXCLUDE_TEMPDB' and DatabaseName !~ \"tempdb\") or ('{SystemDbs}' == 'EXCLUDE_SYSTEM' and DatabaseName !in~ (\"master\", \"model\", \"msdb\", \"tempdb\"))\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| where '{DbState}' == 'ALL' or DatabaseState == 'ONLINE'\n| summarize TotalDatabases = count(), CompliantDatabases = countif(HoursSinceFullBackup <= 24 and HoursSinceFullBackup >= 0)\n| extend CompliancePercent = round(100.0 * CompliantDatabases / todouble(max_of(TotalDatabases, 1)), 1)\n| project CompliancePercent",
+              "size": 4,
+              "title": "Backup Compliance %",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {
+                  "columnMatch": "CompliancePercent",
+                  "formatter": 12,
+                  "formatOptions": {
+                    "palette": "greenRed"
+                  },
+                  "numberFormat": {
+                    "unit": 1,
+                    "options": {
+                      "style": "decimal",
+                      "maximumFractionDigits": 1
+                    }
+                  }
+                },
+                "showBorder": true
+              }
+            },
+            "customWidth": "25",
+            "name": "tile-compliance"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "---\n## Backup Status by Alert Level"
+            },
+            "name": "backup-status-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend HostName = tolower(extract(@\"^([^\\\\,.]+)\", 1, coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| where '{SystemDbs}' == 'INCLUDE_ALL' or ('{SystemDbs}' == 'EXCLUDE_TEMPDB' and DatabaseName !~ \"tempdb\") or ('{SystemDbs}' == 'EXCLUDE_SYSTEM' and DatabaseName !in~ (\"master\", \"model\", \"msdb\", \"tempdb\"))\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| where '{DbState}' == 'ALL' or DatabaseState == 'ONLINE'\n| summarize Count = count() by FullBackupAlertStatus\n| order by Count desc",
+              "size": 3,
+              "title": "Databases by Backup Alert Status",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "piechart",
+              "chartSettings": {
+                "seriesLabelSettings": [
+                  { "seriesName": "OK", "color": "green" },
+                  { "seriesName": "Warning", "color": "yellow" },
+                  { "seriesName": "Critical", "color": "redBright" },
+                  { "seriesName": "Never", "color": "gray" }
+                ]
+              }
+            },
+            "customWidth": "50",
+            "name": "chart-backup-status"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend HostName = tolower(extract(@\"^([^\\\\,.]+)\", 1, coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| where '{SystemDbs}' == 'INCLUDE_ALL' or ('{SystemDbs}' == 'EXCLUDE_TEMPDB' and DatabaseName !~ \"tempdb\") or ('{SystemDbs}' == 'EXCLUDE_SYSTEM' and DatabaseName !in~ (\"master\", \"model\", \"msdb\", \"tempdb\"))\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| where '{DbState}' == 'ALL' or DatabaseState == 'ONLINE'\n| summarize Count = count() by RecoveryModel\n| order by Count desc",
+              "size": 3,
+              "title": "Databases by Recovery Model",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "piechart",
+              "chartSettings": {
+                "seriesLabelSettings": [
+                  { "seriesName": "FULL", "color": "blue" },
+                  { "seriesName": "SIMPLE", "color": "orange" },
+                  { "seriesName": "BULK_LOGGED", "color": "purple" }
+                ]
+              }
+            },
+            "customWidth": "50",
+            "name": "chart-recovery-model"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "---\n## Instance Uptime Snapshot\n\nCurrent uptime as of the most recent collection. For availability percentages and restart history use the **Uptime / Availability** tab."
+            },
+            "name": "uptime-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend HostName = tolower(extract(@\"^([^\\\\,.]+)\", 1, coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where DatabaseName != \"_ERROR\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance\n| extend UptimeDisplay = strcat(InstanceUptimeDays, \"d \", InstanceUptimeHours % 24, \"h\")\n| project SqlInstance, ServerName, SqlVersion, InstanceStartTime, UptimeDisplay, InstanceUptimeDays\n| order by InstanceUptimeDays asc",
+              "size": 0,
+              "title": "SQL Instance Uptime",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "InstanceUptimeDays",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "redGreen"
+                    }
+                  }
+                ],
+                "filter": true,
+                "labelSettings": [
+                  { "columnId": "SqlInstance", "label": "SQL Instance" },
+                  { "columnId": "ServerName", "label": "Server" },
+                  { "columnId": "SqlVersion", "label": "SQL Version" },
+                  { "columnId": "InstanceStartTime", "label": "Started At" },
+                  { "columnId": "UptimeDisplay", "label": "Uptime" },
+                  { "columnId": "InstanceUptimeDays", "label": "Days" }
+                ]
+              }
+            },
+            "name": "grid-uptime"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "Summary"
+      },
+      "name": "group-summary"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## SQL Server Instances\n\nTag filter: **{TagName} = {TagValue:label}**"
+            },
+            "name": "instances-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nlet _nodemap = SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend NodeRaw = coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, \"\")\n| where isnotempty(NodeRaw)\n| summarize arg_max(TimeGenerated, NodeRaw) by SqlInstance\n| project SqlInstance, KnownNode = tolower(extract(@\"^([^\\\\,.]+)\", 1, NodeRaw));\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| lookup kind=leftouter _nodemap on SqlInstance\n| extend HostName = coalesce(KnownNode, tolower(extract(@\"^([^\\\\,.]+)\", 1, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| summarize LastSeen = max(TimeGenerated), LastError = maxif(TimeGenerated, DatabaseName == \"_ERROR\"), DatabaseCount = dcountif(DatabaseName, DatabaseName != \"_ERROR\" and ('{SystemDbs}' == 'INCLUDE_ALL' or ('{SystemDbs}' == 'EXCLUDE_TEMPDB' and DatabaseName !~ \"tempdb\") or ('{SystemDbs}' == 'EXCLUDE_SYSTEM' and DatabaseName !in~ (\"master\", \"model\", \"msdb\", \"tempdb\")))), arg_max(TimeGenerated, SqlVersion, ServerName, InstanceStartTime, InstanceUptimeDays, InstanceUptimeHours) by SqlInstance, HostName\n| extend Collection = iff(isnotnull(LastError) and LastError == LastSeen, \"Failing\", \"OK\")\n| extend UptimeDisplay = strcat(InstanceUptimeDays, \"d \", InstanceUptimeHours % 24, \"h\")\n| project Collection, SqlInstance, HostName, ServerName, SqlVersion, DatabaseCount, InstanceStartTime, UptimeDisplay, LastSeen\n| order by Collection asc, SqlInstance asc",
+              "size": 0,
+              "title": "SQL Server Instances",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Collection",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        { "operator": "==", "thresholdValue": "OK", "representation": "success", "text": "{0}{1}" },
+                        { "operator": "Default", "thresholdValue": null, "representation": "failed", "text": "{0}{1}" }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "DatabaseCount",
+                    "formatter": 4,
+                    "formatOptions": {
+                      "palette": "blue"
+                    }
+                  },
+                  {
+                    "columnMatch": "LastSeen",
+                    "formatter": 6
+                  }
+                ],
+                "filter": true,
+                "labelSettings": [
+                  { "columnId": "Collection", "label": "Collection" },
+                  { "columnId": "SqlInstance", "label": "SQL Instance" },
+                  { "columnId": "HostName", "label": "Host (tag match key)" },
+                  { "columnId": "ServerName", "label": "Server" },
+                  { "columnId": "SqlVersion", "label": "SQL Version" },
+                  { "columnId": "DatabaseCount", "label": "Databases" },
+                  { "columnId": "InstanceStartTime", "label": "Started At" },
+                  { "columnId": "UptimeDisplay", "label": "Uptime" },
+                  { "columnId": "LastSeen", "label": "Last Seen" }
+                ]
+              }
+            },
+            "name": "grid-instances"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "---\n## Collection Coverage\n\nHow many instances reported successfully on each collection run. A dip means the runbook could not reach one or more instances (or did not run)."
+            },
+            "name": "coverage-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nlet _nodemap = SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend NodeRaw = coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, \"\")\n| where isnotempty(NodeRaw)\n| summarize arg_max(TimeGenerated, NodeRaw) by SqlInstance\n| project SqlInstance, KnownNode = tolower(extract(@\"^([^\\\\,.]+)\", 1, NodeRaw));\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| lookup kind=leftouter _nodemap on SqlInstance\n| extend HostName = coalesce(KnownNode, tolower(extract(@\"^([^\\\\,.]+)\", 1, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| summarize Reporting = dcountif(SqlInstance, DatabaseName != \"_ERROR\"), Failing = dcountif(SqlInstance, DatabaseName == \"_ERROR\") by bin(TimeGenerated, 1h)\n| order by TimeGenerated asc",
+              "size": 0,
+              "title": "Instances Reporting per Hour",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "linechart",
+              "chartSettings": {
+                "xAxis": "TimeGenerated",
+                "yAxis": ["Reporting", "Failing"],
+                "showLegend": true,
+                "seriesLabelSettings": [
+                  { "seriesName": "Reporting", "color": "green" },
+                  { "seriesName": "Failing", "color": "redBright" }
+                ]
+              }
+            },
+            "customWidth": "50",
+            "name": "chart-collection-coverage"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend HostName = tolower(extract(@\"^([^\\\\,.]+)\", 1, coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where DatabaseName != \"_ERROR\"\n| summarize arg_max(TimeGenerated, InstanceUptimeDays) by SqlInstance\n| project SqlInstance, InstanceUptimeDays\n| order by InstanceUptimeDays asc\n| take 20",
+              "size": 0,
+              "title": "Current Uptime by Instance (days, lowest first)",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "barchart",
+              "chartSettings": {
+                "xAxis": "SqlInstance",
+                "yAxis": ["InstanceUptimeDays"],
+                "showLegend": false
+              }
+            },
+            "customWidth": "50",
+            "name": "chart-current-uptime"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "---\n## Tag Coverage — what the tag filter would hide\n\nAnything listed below is **invisible whenever a Tag Value is selected**, because it carries no `{TagName}` tag at all. These two views deliberately **ignore** the Tag Value selection.\n\nFor a **failover cluster instance** the tag has to be on **every node** — the instance is only visible while its *active* node is tagged, so a partially-tagged cluster disappears from the dashboard at the next failover. The *Nodes seen* column shows every node an instance has run on during the selected time range."
+            },
+            "name": "tag-coverage-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _tagged = dynamic([{AllTaggedHosts}]);\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| extend NodeName = tolower(extract(@\"^([^\\\\,.]+)\", 1, tostring(column_ifexists(\"PhysicalNodeName\", \"\"))))\n| summarize LastSeen = max(TimeGenerated), Nodes = make_set_if(NodeName, isnotempty(NodeName)), Successes = countif(DatabaseName != \"_ERROR\") by SqlInstance\n| extend UntaggedNodes = set_difference(Nodes, _tagged)\n| where array_length(Nodes) == 0 or array_length(UntaggedNodes) > 0\n| extend Status = case(array_length(Nodes) == 0 and Successes == 0, \"Node unknown - never collected\", array_length(Nodes) == 0, \"Node unknown - PhysicalNodeName not populated\", array_length(UntaggedNodes) == array_length(Nodes), \"No node tagged\", \"Some nodes untagged\")\n| project Status, SqlInstance, Nodes, UntaggedNodes, LastSeen\n| order by Status asc, SqlInstance asc",
+              "size": 0,
+              "title": "Monitored SQL with no tag on its node",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Status",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        { "operator": "==", "thresholdValue": "No node tagged", "representation": "failed", "text": "{0}{1}" },
+                        { "operator": "==", "thresholdValue": "Some nodes untagged", "representation": "2", "text": "{0}{1}" },
+                        { "operator": "Default", "thresholdValue": null, "representation": "unknown", "text": "{0}{1}" }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "LastSeen",
+                    "formatter": 6
+                  }
+                ],
+                "filter": true,
+                "labelSettings": [
+                  { "columnId": "Status", "label": "Status" },
+                  { "columnId": "SqlInstance", "label": "SQL Instance" },
+                  { "columnId": "Nodes", "label": "Nodes seen" },
+                  { "columnId": "UntaggedNodes", "label": "Untagged nodes" },
+                  { "columnId": "LastSeen", "label": "Last Seen" }
+                ]
+              },
+              "noDataMessage": "Every monitored instance runs on a tagged node. Nothing is hidden by the tag filter."
+            },
+            "name": "grid-untagged-instances"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "resources\n| where type in~ ('microsoft.hybridcompute/machines', 'microsoft.compute/virtualmachines')\n| extend TagEnv = tostring(tags['{TagName}'])\n| where isempty(TagEnv)\n| where tolower(name) in (dynamic([{MonitoredNodes}]))\n| project Machine = name, Kind = iff(type =~ 'microsoft.hybridcompute/machines', 'Arc machine', 'Azure VM'), ResourceGroup = resourceGroup, SubscriptionId = subscriptionId, ResourceId = id\n| order by Machine asc",
+              "size": 0,
+              "title": "Azure machines to tag (running monitored SQL, tag missing)",
+              "queryType": 1,
+              "resourceType": "microsoft.resourcegraph/resources",
+              "crossComponentResources": [
+                "{Subscription}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Kind",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "colors",
+                      "thresholdsGrid": [
+                        { "operator": "==", "thresholdValue": "Arc machine", "representation": "blue", "text": "{0}{1}" },
+                        { "operator": "Default", "thresholdValue": null, "representation": "purple", "text": "{0}{1}" }
+                      ]
+                    }
+                  }
+                ],
+                "filter": true,
+                "labelSettings": [
+                  { "columnId": "Machine", "label": "Machine" },
+                  { "columnId": "Kind", "label": "Kind" },
+                  { "columnId": "ResourceGroup", "label": "Resource Group" },
+                  { "columnId": "SubscriptionId", "label": "Subscription" },
+                  { "columnId": "ResourceId", "label": "Resource ID" }
+                ]
+              },
+              "noDataMessage": "Every Azure machine running monitored SQL carries the tag."
+            },
+            "name": "grid-machines-to-tag"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "Instances"
+      },
+      "name": "group-instances"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## Uptime / Availability\n\nAvailability is derived from `InstanceStartTime` (SQL Server's `sqlserver_start_time`). A **restart** is detected whenever that value increases between two collection runs.\n\n- **Restart time is exact** — it comes from SQL Server itself.\n- **The moment the instance went down is not observed**, so downtime is measured conservatively as `restart time − last successful collection`. With an hourly schedule, a single restart therefore costs up to one hour of measured downtime. Increase the collection frequency (multiple offset schedules, or a Logic App calling the runbook webhook) to tighten this.\n- **Failover Cluster Instances (FCI)**: uptime resets on failover, so a planned failover appears here as a restart. That is intentional — the instance really did restart on the other node. The tag filter follows the instance, because matching uses the **active physical node**.\n- **Unreachable instances stay visible under their tag.** A failed poll carries no node name, so each instance's **last known node is carried forward** within the selected time range — an instance that is down or unreachable still matches its tag and still appears in *Unreachable Now*. The only instances without a node are those never collected successfully in the window; they are listed under **Instances → Tag Coverage**.\n\nTag filter: **{TagName} = {TagValue:label}** &nbsp;|&nbsp; Window: **{TimeRange:label}**"
+            },
+            "name": "uptime-methodology"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nlet _nodemap = SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend NodeRaw = coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, \"\")\n| where isnotempty(NodeRaw)\n| summarize arg_max(TimeGenerated, NodeRaw) by SqlInstance\n| project SqlInstance, KnownNode = tolower(extract(@\"^([^\\\\,.]+)\", 1, NodeRaw));\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| lookup kind=leftouter _nodemap on SqlInstance\n| extend HostName = coalesce(KnownNode, tolower(extract(@\"^([^\\\\,.]+)\", 1, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| summarize by SqlInstance\n| count",
+              "size": 4,
+              "title": "Instances Monitored",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {
+                  "columnMatch": "Count",
+                  "formatter": 12,
+                  "formatOptions": { "palette": "blue" }
+                },
+                "showBorder": true
+              }
+            },
+            "customWidth": "25",
+            "name": "tile-uptime-instances"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nlet _polls = SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend HostName = tolower(extract(@\"^([^\\\\,.]+)\", 1, coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where DatabaseName != \"_ERROR\" and isnotempty(InstanceStartTime)\n| summarize by SqlInstance, PollTime = bin(TimeGenerated, 1m), StartTime = todatetime(InstanceStartTime);\n_polls\n| order by SqlInstance asc, PollTime asc\n| extend PrevInstance = prev(SqlInstance), PrevStart = prev(StartTime)\n| where SqlInstance == PrevInstance and StartTime > PrevStart\n| count",
+              "size": 4,
+              "title": "Restart Events",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {
+                  "columnMatch": "Count",
+                  "formatter": 12,
+                  "formatOptions": { "palette": "orange" }
+                },
+                "showBorder": true
+              }
+            },
+            "customWidth": "25",
+            "name": "tile-restart-events"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nlet _polls = SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend HostName = tolower(extract(@\"^([^\\\\,.]+)\", 1, coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where DatabaseName != \"_ERROR\" and isnotempty(InstanceStartTime)\n| summarize by SqlInstance, PollTime = bin(TimeGenerated, 1m), StartTime = todatetime(InstanceStartTime);\nlet _window = toscalar(_polls | summarize v = todouble(datetime_diff('second', max(PollTime), min(PollTime))) | project v);\n_polls\n| order by SqlInstance asc, PollTime asc\n| extend PrevInstance = prev(SqlInstance), PrevStart = prev(StartTime), PrevPoll = prev(PollTime)\n| extend DowntimeSec = iff(SqlInstance == PrevInstance and StartTime > PrevStart, todouble(max_of(datetime_diff('second', StartTime, PrevPoll), 0)), 0.0)\n| summarize DowntimeSec = sum(DowntimeSec), Instances = dcount(SqlInstance)\n| extend FleetUptimePercent = round(100.0 * (1.0 - DowntimeSec / max_of(_window * todouble(Instances), 1.0)), 3)\n| project FleetUptimePercent",
+              "size": 4,
+              "title": "Fleet Uptime %",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {
+                  "columnMatch": "FleetUptimePercent",
+                  "formatter": 12,
+                  "formatOptions": { "palette": "greenRed" },
+                  "numberFormat": {
+                    "unit": 1,
+                    "options": {
+                      "style": "decimal",
+                      "maximumFractionDigits": 3
+                    }
+                  }
+                },
+                "showBorder": true
+              }
+            },
+            "customWidth": "25",
+            "name": "tile-fleet-uptime"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nlet _nodemap = SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend NodeRaw = coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, \"\")\n| where isnotempty(NodeRaw)\n| summarize arg_max(TimeGenerated, NodeRaw) by SqlInstance\n| project SqlInstance, KnownNode = tolower(extract(@\"^([^\\\\,.]+)\", 1, NodeRaw));\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| lookup kind=leftouter _nodemap on SqlInstance\n| extend HostName = coalesce(KnownNode, tolower(extract(@\"^([^\\\\,.]+)\", 1, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| summarize LastPoll = max(TimeGenerated), LastErrorPoll = maxif(TimeGenerated, DatabaseName == \"_ERROR\") by SqlInstance\n| where isnotnull(LastErrorPoll) and LastErrorPoll == LastPoll\n| count",
+              "size": 4,
+              "title": "Unreachable Now",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "tiles",
+              "tileSettings": {
+                "titleContent": {
+                  "columnMatch": "Count",
+                  "formatter": 12,
+                  "formatOptions": { "palette": "redBright" }
+                },
+                "showBorder": true
+              }
+            },
+            "customWidth": "25",
+            "name": "tile-unreachable"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "---\n## Availability by Instance"
+            },
+            "name": "availability-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nlet _polls = SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend HostName = tolower(extract(@\"^([^\\\\,.]+)\", 1, coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where DatabaseName != \"_ERROR\" and isnotempty(InstanceStartTime)\n| summarize by SqlInstance, PollTime = bin(TimeGenerated, 1m), StartTime = todatetime(InstanceStartTime);\nlet _window = toscalar(_polls | summarize v = todouble(datetime_diff('second', max(PollTime), min(PollTime))) | project v);\n_polls\n| order by SqlInstance asc, PollTime asc\n| extend PrevInstance = prev(SqlInstance), PrevStart = prev(StartTime), PrevPoll = prev(PollTime)\n| extend IsRestart = (SqlInstance == PrevInstance and StartTime > PrevStart)\n| extend DowntimeSec = iff(IsRestart, todouble(max_of(datetime_diff('second', StartTime, PrevPoll), 0)), 0.0)\n| summarize Restarts = countif(IsRestart), DowntimeSec = sum(DowntimeSec), LastPoll = max(PollTime), InstanceStart = max(StartTime) by SqlInstance\n| extend UptimePercent = round(100.0 * (1.0 - DowntimeSec / max_of(_window, 1.0)), 3)\n| extend CurrentUptimeDays = round(todouble(datetime_diff('second', LastPoll, InstanceStart)) / 86400.0, 2)\n| project SqlInstance, UptimePercent, Restarts, DowntimeMinutes = round(DowntimeSec / 60.0, 1), InstanceStart, CurrentUptimeDays, LastPoll\n| order by UptimePercent asc, Restarts desc",
+              "size": 0,
+              "title": "Uptime % per Instance",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "UptimePercent",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 99,
+                      "max": 100,
+                      "palette": "redGreen"
+                    },
+                    "numberFormat": {
+                      "unit": 1,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 3
+                      }
+                    }
+                  },
+                  {
+                    "columnMatch": "Restarts",
+                    "formatter": 4,
+                    "formatOptions": {
+                      "palette": "orange"
+                    }
+                  },
+                  {
+                    "columnMatch": "DowntimeMinutes",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "greenRed"
+                    }
+                  },
+                  {
+                    "columnMatch": "LastPoll",
+                    "formatter": 6
+                  }
+                ],
+                "filter": true,
+                "labelSettings": [
+                  { "columnId": "SqlInstance", "label": "SQL Instance" },
+                  { "columnId": "UptimePercent", "label": "Uptime %" },
+                  { "columnId": "Restarts", "label": "Restarts" },
+                  { "columnId": "DowntimeMinutes", "label": "Downtime (min, max estimate)" },
+                  { "columnId": "InstanceStart", "label": "Running Since" },
+                  { "columnId": "CurrentUptimeDays", "label": "Current Uptime (days)" },
+                  { "columnId": "LastPoll", "label": "Last Collection" }
+                ]
+              }
+            },
+            "name": "grid-availability"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nlet _polls = SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend HostName = tolower(extract(@\"^([^\\\\,.]+)\", 1, coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where DatabaseName != \"_ERROR\" and isnotempty(InstanceStartTime)\n| summarize by SqlInstance, PollTime = bin(TimeGenerated, 1m), StartTime = todatetime(InstanceStartTime);\nlet _window = toscalar(_polls | summarize v = todouble(datetime_diff('second', max(PollTime), min(PollTime))) | project v);\n_polls\n| order by SqlInstance asc, PollTime asc\n| extend PrevInstance = prev(SqlInstance), PrevStart = prev(StartTime), PrevPoll = prev(PollTime)\n| extend IsRestart = (SqlInstance == PrevInstance and StartTime > PrevStart)\n| extend DowntimeSec = iff(IsRestart, todouble(max_of(datetime_diff('second', StartTime, PrevPoll), 0)), 0.0)\n| summarize DowntimeSec = sum(DowntimeSec) by SqlInstance\n| extend UptimePercent = round(100.0 * (1.0 - DowntimeSec / max_of(_window, 1.0)), 3)\n| project SqlInstance, UptimePercent\n| order by UptimePercent asc\n| take 10",
+              "size": 0,
+              "title": "Instances with Lowest Uptime",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "barchart",
+              "chartSettings": {
+                "xAxis": "SqlInstance",
+                "yAxis": ["UptimePercent"],
+                "showLegend": false
+              }
+            },
+            "customWidth": "50",
+            "name": "chart-lowest-uptime"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nlet _polls = SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend HostName = tolower(extract(@\"^([^\\\\,.]+)\", 1, coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where DatabaseName != \"_ERROR\" and isnotempty(InstanceStartTime)\n| summarize by SqlInstance, PollTime = bin(TimeGenerated, 1m), StartTime = todatetime(InstanceStartTime);\n_polls\n| order by SqlInstance asc, PollTime asc\n| extend PrevInstance = prev(SqlInstance), PrevStart = prev(StartTime), PrevPoll = prev(PollTime)\n| where SqlInstance == PrevInstance and StartTime > PrevStart\n| project SqlInstance, RestartedAt = StartTime, LastSeenUpAt = PrevPoll, PreviousStart = PrevStart, EstDowntimeMinutes = round(todouble(datetime_diff('second', StartTime, PrevPoll)) / 60.0, 1)\n| order by RestartedAt desc",
+              "size": 0,
+              "title": "Restart Events",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "RestartedAt",
+                    "formatter": 6
+                  },
+                  {
+                    "columnMatch": "EstDowntimeMinutes",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "palette": "greenRed"
+                    }
+                  }
+                ],
+                "filter": true,
+                "labelSettings": [
+                  { "columnId": "SqlInstance", "label": "SQL Instance" },
+                  { "columnId": "RestartedAt", "label": "Restarted At" },
+                  { "columnId": "LastSeenUpAt", "label": "Last Seen Up" },
+                  { "columnId": "PreviousStart", "label": "Previous Start" },
+                  { "columnId": "EstDowntimeMinutes", "label": "Est. Downtime (min)" }
+                ]
+              }
+            },
+            "customWidth": "50",
+            "name": "grid-restart-events"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "---\n## Daily Availability Trend\n\nUptime percentage per instance per day. A flat 100% line is the healthy state; a dip marks the day an instance restarted."
+            },
+            "name": "daily-availability-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nlet _polls = SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend HostName = tolower(extract(@\"^([^\\\\,.]+)\", 1, coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where DatabaseName != \"_ERROR\" and isnotempty(InstanceStartTime)\n| summarize by SqlInstance, PollTime = bin(TimeGenerated, 1m), StartTime = todatetime(InstanceStartTime);\n_polls\n| order by SqlInstance asc, PollTime asc\n| extend PrevInstance = prev(SqlInstance), PrevStart = prev(StartTime), PrevPoll = prev(PollTime)\n| extend DowntimeSec = iff(SqlInstance == PrevInstance and StartTime > PrevStart, todouble(max_of(datetime_diff('second', StartTime, PrevPoll), 0)), 0.0)\n| summarize DowntimeSec = sum(DowntimeSec) by SqlInstance, Day = bin(PollTime, 1d)\n| extend UptimePercent = round(100.0 * (1.0 - DowntimeSec / 86400.0), 3)\n| project Day, SqlInstance, UptimePercent\n| order by Day asc",
+              "size": 0,
+              "title": "Daily Uptime % by Instance",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "linechart",
+              "chartSettings": {
+                "xAxis": "Day",
+                "yAxis": ["UptimePercent"],
+                "group": "SqlInstance",
+                "showLegend": true
+              }
+            },
+            "name": "chart-daily-availability"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "---\n## Collection Reliability\n\nThis measures whether the runbook could reach each instance, which is different from SQL Server uptime. A failed collection can be a network, firewall or permissions problem rather than a database outage."
+            },
+            "name": "collection-reliability-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nlet _nodemap = SQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend NodeRaw = coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, \"\")\n| where isnotempty(NodeRaw)\n| summarize arg_max(TimeGenerated, NodeRaw) by SqlInstance\n| project SqlInstance, KnownNode = tolower(extract(@\"^([^\\\\,.]+)\", 1, NodeRaw));\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| lookup kind=leftouter _nodemap on SqlInstance\n| extend HostName = coalesce(KnownNode, tolower(extract(@\"^([^\\\\,.]+)\", 1, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| summarize Polls = dcount(bin(TimeGenerated, 1m)), FailedPolls = dcountif(bin(TimeGenerated, 1m), DatabaseName == \"_ERROR\"), LastPoll = max(TimeGenerated), LastErrorPoll = maxif(TimeGenerated, DatabaseName == \"_ERROR\"), LastError = anyif(LastFullBackupStatus, DatabaseName == \"_ERROR\") by SqlInstance\n| extend SuccessfulPolls = Polls - FailedPolls\n| extend CollectionPercent = round(100.0 * todouble(SuccessfulPolls) / todouble(max_of(Polls, 1)), 2)\n| extend Status = case(isnotnull(LastErrorPoll) and LastErrorPoll == LastPoll, \"Failing\", FailedPolls > 0, \"Intermittent\", \"Healthy\")\n| project Status, SqlInstance, Polls, SuccessfulPolls, FailedPolls, CollectionPercent, LastPoll, LastError\n| order by CollectionPercent asc, SqlInstance asc",
+              "size": 0,
+              "title": "Collection Reliability by Instance",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "Status",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        { "operator": "==", "thresholdValue": "Healthy", "representation": "success", "text": "{0}{1}" },
+                        { "operator": "==", "thresholdValue": "Intermittent", "representation": "2", "text": "{0}{1}" },
+                        { "operator": "Default", "thresholdValue": null, "representation": "failed", "text": "{0}{1}" }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "CollectionPercent",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "redGreen"
+                    }
+                  },
+                  {
+                    "columnMatch": "LastPoll",
+                    "formatter": 6
+                  }
+                ],
+                "filter": true,
+                "labelSettings": [
+                  { "columnId": "Status", "label": "Status" },
+                  { "columnId": "SqlInstance", "label": "SQL Instance" },
+                  { "columnId": "Polls", "label": "Collections" },
+                  { "columnId": "SuccessfulPolls", "label": "Succeeded" },
+                  { "columnId": "FailedPolls", "label": "Failed" },
+                  { "columnId": "CollectionPercent", "label": "Success %" },
+                  { "columnId": "LastPoll", "label": "Last Collection" },
+                  { "columnId": "LastError", "label": "Last Error" }
+                ]
+              }
+            },
+            "name": "grid-collection-reliability"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "Uptime"
+      },
+      "name": "group-uptime"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## Databases\n\nDatabase state filter: **{DbState:label}** &nbsp;|&nbsp; System DBs: **{SystemDbs:label}** &nbsp;|&nbsp; Tag filter: **{TagName} = {TagValue:label}**"
+            },
+            "name": "databases-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nlet _db = dynamic([{DatabaseName}]);\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend HostName = tolower(extract(@\"^([^\\\\,.]+)\", 1, coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where '*' in (_db) or DatabaseName in (_db)\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| where '{SystemDbs}' == 'INCLUDE_ALL' or ('{SystemDbs}' == 'EXCLUDE_TEMPDB' and DatabaseName !~ \"tempdb\") or ('{SystemDbs}' == 'EXCLUDE_SYSTEM' and DatabaseName !in~ (\"master\", \"model\", \"msdb\", \"tempdb\"))\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| where '{DbState}' == 'ALL' or DatabaseState == 'ONLINE'\n| project SqlInstance, DatabaseName, DatabaseState, RecoveryModel, DatabaseCreateDate, LastFullBackupTime, HoursSinceFullBackup, FullBackupAlertStatus\n| order by SqlInstance asc, DatabaseName asc",
+              "size": 0,
+              "title": "Database Details",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "DatabaseState",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "colors",
+                      "thresholdsGrid": [
+                        { "operator": "==", "thresholdValue": "ONLINE", "representation": "green", "text": "{0}{1}" },
+                        { "operator": "Default", "thresholdValue": null, "representation": "redBright", "text": "{0}{1}" }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "RecoveryModel",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "colors",
+                      "thresholdsGrid": [
+                        { "operator": "==", "thresholdValue": "FULL", "representation": "blue", "text": "{0}{1}" },
+                        { "operator": "==", "thresholdValue": "SIMPLE", "representation": "orange", "text": "{0}{1}" },
+                        { "operator": "Default", "thresholdValue": null, "representation": "purple", "text": "{0}{1}" }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "HoursSinceFullBackup",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 168,
+                      "palette": "greenRed"
+                    }
+                  },
+                  {
+                    "columnMatch": "FullBackupAlertStatus",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        { "operator": "==", "thresholdValue": "OK", "representation": "success", "text": "{0}{1}" },
+                        { "operator": "==", "thresholdValue": "Warning", "representation": "2", "text": "{0}{1}" },
+                        { "operator": "==", "thresholdValue": "Critical", "representation": "critical", "text": "{0}{1}" },
+                        { "operator": "==", "thresholdValue": "Never", "representation": "unknown", "text": "{0}{1}" },
+                        { "operator": "Default", "thresholdValue": null, "representation": "unknown", "text": "{0}{1}" }
+                      ]
+                    }
+                  }
+                ],
+                "filter": true,
+                "labelSettings": [
+                  { "columnId": "SqlInstance", "label": "SQL Instance" },
+                  { "columnId": "DatabaseName", "label": "Database" },
+                  { "columnId": "DatabaseState", "label": "State" },
+                  { "columnId": "RecoveryModel", "label": "Recovery Model" },
+                  { "columnId": "DatabaseCreateDate", "label": "Created" },
+                  { "columnId": "LastFullBackupTime", "label": "Last Full Backup" },
+                  { "columnId": "HoursSinceFullBackup", "label": "Hours Since Backup" },
+                  { "columnId": "FullBackupAlertStatus", "label": "Alert Status" }
+                ]
+              }
+            },
+            "name": "grid-databases"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "---\n## Databases Excluded by the State Filter\n\nDatabases that are not ONLINE. These cannot be backed up, so they are excluded from the views above when the filter is set to *Online only*."
+            },
+            "name": "excluded-db-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend HostName = tolower(extract(@\"^([^\\\\,.]+)\", 1, coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| where '{SystemDbs}' == 'INCLUDE_ALL' or ('{SystemDbs}' == 'EXCLUDE_TEMPDB' and DatabaseName !~ \"tempdb\") or ('{SystemDbs}' == 'EXCLUDE_SYSTEM' and DatabaseName !in~ (\"master\", \"model\", \"msdb\", \"tempdb\"))\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| where DatabaseState != 'ONLINE'\n| project SqlInstance, DatabaseName, DatabaseState, RecoveryModel, LastFullBackupTime, HoursSinceFullBackup, FullBackupAlertStatus\n| order by SqlInstance asc, DatabaseName asc",
+              "size": 0,
+              "title": "Non-ONLINE Databases",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "DatabaseState",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "colors",
+                      "thresholdsGrid": [
+                        { "operator": "Default", "thresholdValue": null, "representation": "orange", "text": "{0}{1}" }
+                      ]
+                    }
+                  }
+                ],
+                "filter": true,
+                "labelSettings": [
+                  { "columnId": "SqlInstance", "label": "SQL Instance" },
+                  { "columnId": "DatabaseName", "label": "Database" },
+                  { "columnId": "DatabaseState", "label": "State" },
+                  { "columnId": "RecoveryModel", "label": "Recovery Model" },
+                  { "columnId": "LastFullBackupTime", "label": "Last Full Backup" },
+                  { "columnId": "HoursSinceFullBackup", "label": "Hours Since Backup" },
+                  { "columnId": "FullBackupAlertStatus", "label": "Alert Status" }
+                ]
+              }
+            },
+            "name": "grid-excluded-databases"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "---\n## Databases by Instance"
+            },
+            "name": "db-by-instance-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend HostName = tolower(extract(@\"^([^\\\\,.]+)\", 1, coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| where '{SystemDbs}' == 'INCLUDE_ALL' or ('{SystemDbs}' == 'EXCLUDE_TEMPDB' and DatabaseName !~ \"tempdb\") or ('{SystemDbs}' == 'EXCLUDE_SYSTEM' and DatabaseName !in~ (\"master\", \"model\", \"msdb\", \"tempdb\"))\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| where '{DbState}' == 'ALL' or DatabaseState == 'ONLINE'\n| summarize DatabaseCount = count() by SqlInstance\n| order by DatabaseCount desc",
+              "size": 2,
+              "title": "Database Count by Instance",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "barchart",
+              "chartSettings": {
+                "xAxis": "SqlInstance",
+                "yAxis": ["DatabaseCount"],
+                "showLegend": false
+              }
+            },
+            "name": "chart-db-by-instance"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "Databases"
+      },
+      "name": "group-databases"
+    },
+    {
+      "type": 12,
+      "content": {
+        "version": "NotebookGroup/1.0",
+        "groupType": "editable",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "## Backup Status\n\nDatabase state filter: **{DbState:label}** &nbsp;|&nbsp; System DBs: **{SystemDbs:label}** &nbsp;|&nbsp; Tag filter: **{TagName} = {TagValue:label}**\n\nThresholds come from the collection query: `OK` <= 24h, `Warning` > 24h, `Critical` > 168h, `Never` = no full backup on record.\n\n**`tempdb` is excluded by default.** It is recreated every time SQL Server starts and can never be backed up, so including it permanently reports `Never` and understates compliance. `master`, `model` and `msdb` *should* be backed up and stay included unless you switch to *Exclude all system databases*."
+            },
+            "name": "backups-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nlet _db = dynamic([{DatabaseName}]);\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend HostName = tolower(extract(@\"^([^\\\\,.]+)\", 1, coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where '*' in (_db) or DatabaseName in (_db)\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| where '{SystemDbs}' == 'INCLUDE_ALL' or ('{SystemDbs}' == 'EXCLUDE_TEMPDB' and DatabaseName !~ \"tempdb\") or ('{SystemDbs}' == 'EXCLUDE_SYSTEM' and DatabaseName !in~ (\"master\", \"model\", \"msdb\", \"tempdb\"))\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| where '{DbState}' == 'ALL' or DatabaseState == 'ONLINE'\n| summarize TotalDatabases = count(), CompliantDatabases = countif(HoursSinceFullBackup <= 24 and HoursSinceFullBackup >= 0), WarningDatabases = countif(HoursSinceFullBackup > 24 and HoursSinceFullBackup <= 168), CriticalDatabases = countif(HoursSinceFullBackup > 168), NeverDatabases = countif(FullBackupAlertStatus == \"Never\") by SqlInstance\n| extend CompliancePercent = round(100.0 * CompliantDatabases / todouble(max_of(TotalDatabases, 1)), 1)\n| project SqlInstance, TotalDatabases, CompliantDatabases, WarningDatabases, CriticalDatabases, NeverDatabases, CompliancePercent\n| order by CompliancePercent asc",
+              "size": 0,
+              "title": "Backup Compliance by Instance",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "CompliantDatabases",
+                    "formatter": 8,
+                    "formatOptions": { "palette": "green" }
+                  },
+                  {
+                    "columnMatch": "WarningDatabases",
+                    "formatter": 8,
+                    "formatOptions": { "palette": "yellow" }
+                  },
+                  {
+                    "columnMatch": "CriticalDatabases",
+                    "formatter": 8,
+                    "formatOptions": { "palette": "redBright" }
+                  },
+                  {
+                    "columnMatch": "CompliancePercent",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 100,
+                      "palette": "redGreen"
+                    },
+                    "numberFormat": {
+                      "unit": 1,
+                      "options": {
+                        "style": "decimal",
+                        "maximumFractionDigits": 1
+                      }
+                    }
+                  }
+                ],
+                "filter": true,
+                "labelSettings": [
+                  { "columnId": "SqlInstance", "label": "SQL Instance" },
+                  { "columnId": "TotalDatabases", "label": "Total DBs" },
+                  { "columnId": "CompliantDatabases", "label": "OK (<=24h)" },
+                  { "columnId": "WarningDatabases", "label": "Warning (24-168h)" },
+                  { "columnId": "CriticalDatabases", "label": "Critical (>168h)" },
+                  { "columnId": "NeverDatabases", "label": "Never" },
+                  { "columnId": "CompliancePercent", "label": "Compliance %" }
+                ]
+              }
+            },
+            "name": "grid-backup-compliance"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "---\n## Databases with Backup Alerts"
+            },
+            "name": "backup-alerts-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nlet _db = dynamic([{DatabaseName}]);\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend HostName = tolower(extract(@\"^([^\\\\,.]+)\", 1, coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where '*' in (_db) or DatabaseName in (_db)\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| where '{SystemDbs}' == 'INCLUDE_ALL' or ('{SystemDbs}' == 'EXCLUDE_TEMPDB' and DatabaseName !~ \"tempdb\") or ('{SystemDbs}' == 'EXCLUDE_SYSTEM' and DatabaseName !in~ (\"master\", \"model\", \"msdb\", \"tempdb\"))\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| where '{DbState}' == 'ALL' or DatabaseState == 'ONLINE'\n| where FullBackupAlertStatus in (\"Warning\", \"Critical\", \"Never\")\n| project SqlInstance, DatabaseName, DatabaseState, RecoveryModel, LastFullBackupTime, HoursSinceFullBackup, FullBackupAlertStatus, LastLogBackupTime, MinutesSinceLogBackup\n| order by case(FullBackupAlertStatus == \"Critical\", 1, FullBackupAlertStatus == \"Never\", 2, FullBackupAlertStatus == \"Warning\", 3, 4) asc, HoursSinceFullBackup desc",
+              "size": 0,
+              "title": "Databases Requiring Attention",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "HoursSinceFullBackup",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 168,
+                      "palette": "greenRed"
+                    }
+                  },
+                  {
+                    "columnMatch": "FullBackupAlertStatus",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        { "operator": "==", "thresholdValue": "Warning", "representation": "2", "text": "{0}{1}" },
+                        { "operator": "==", "thresholdValue": "Critical", "representation": "critical", "text": "{0}{1}" },
+                        { "operator": "==", "thresholdValue": "Never", "representation": "unknown", "text": "{0}{1}" },
+                        { "operator": "Default", "thresholdValue": null, "representation": "unknown", "text": "{0}{1}" }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "MinutesSinceLogBackup",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 120,
+                      "palette": "greenRed"
+                    }
+                  }
+                ],
+                "filter": true,
+                "labelSettings": [
+                  { "columnId": "SqlInstance", "label": "SQL Instance" },
+                  { "columnId": "DatabaseName", "label": "Database" },
+                  { "columnId": "DatabaseState", "label": "State" },
+                  { "columnId": "RecoveryModel", "label": "Recovery Model" },
+                  { "columnId": "LastFullBackupTime", "label": "Last Full Backup" },
+                  { "columnId": "HoursSinceFullBackup", "label": "Hours Since Full" },
+                  { "columnId": "FullBackupAlertStatus", "label": "Alert Status" },
+                  { "columnId": "LastLogBackupTime", "label": "Last Log Backup" },
+                  { "columnId": "MinutesSinceLogBackup", "label": "Min Since Log" }
+                ]
+              }
+            },
+            "name": "grid-backup-alerts"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "---\n## Full Backup Details"
+            },
+            "name": "full-backup-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nlet _db = dynamic([{DatabaseName}]);\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend HostName = tolower(extract(@\"^([^\\\\,.]+)\", 1, coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where '*' in (_db) or DatabaseName in (_db)\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| where '{SystemDbs}' == 'INCLUDE_ALL' or ('{SystemDbs}' == 'EXCLUDE_TEMPDB' and DatabaseName !~ \"tempdb\") or ('{SystemDbs}' == 'EXCLUDE_SYSTEM' and DatabaseName !in~ (\"master\", \"model\", \"msdb\", \"tempdb\"))\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| where '{DbState}' == 'ALL' or DatabaseState == 'ONLINE'\n| project SqlInstance, DatabaseName, DatabaseState, RecoveryModel, LastFullBackupTime, HoursSinceFullBackup, LastFullBackupStatus, FullBackupAlertStatus\n| order by SqlInstance asc, DatabaseName asc",
+              "size": 0,
+              "title": "All Database Backup Status",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "HoursSinceFullBackup",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 168,
+                      "palette": "greenRed"
+                    }
+                  },
+                  {
+                    "columnMatch": "FullBackupAlertStatus",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        { "operator": "==", "thresholdValue": "OK", "representation": "success", "text": "{0}{1}" },
+                        { "operator": "==", "thresholdValue": "Warning", "representation": "2", "text": "{0}{1}" },
+                        { "operator": "==", "thresholdValue": "Critical", "representation": "critical", "text": "{0}{1}" },
+                        { "operator": "==", "thresholdValue": "Never", "representation": "unknown", "text": "{0}{1}" },
+                        { "operator": "Default", "thresholdValue": null, "representation": "unknown", "text": "{0}{1}" }
+                      ]
+                    }
+                  }
+                ],
+                "filter": true,
+                "labelSettings": [
+                  { "columnId": "SqlInstance", "label": "SQL Instance" },
+                  { "columnId": "DatabaseName", "label": "Database" },
+                  { "columnId": "DatabaseState", "label": "State" },
+                  { "columnId": "RecoveryModel", "label": "Recovery Model" },
+                  { "columnId": "LastFullBackupTime", "label": "Last Full Backup" },
+                  { "columnId": "HoursSinceFullBackup", "label": "Hours Since Backup" },
+                  { "columnId": "LastFullBackupStatus", "label": "Backup Status" },
+                  { "columnId": "FullBackupAlertStatus", "label": "Alert Status" }
+                ]
+              }
+            },
+            "name": "grid-full-backup"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "---\n## Log Backup Details (FULL Recovery Model)"
+            },
+            "name": "log-backup-header"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let _hosts = dynamic([{TaggedHosts}]);\nlet _db = dynamic([{DatabaseName}]);\nSQLServerMonitoring_CL\n| where TimeGenerated {TimeRange}\n| extend HostName = tolower(extract(@\"^([^\\\\,.]+)\", 1, coalesce(tostring(column_ifexists(\"PhysicalNodeName\", \"\")), ServerName, SqlInstance)))\n| where '*' in ({TagValue}) or HostName in~ (_hosts)\n| where '*' in ({SqlInstance}) or SqlInstance in ({SqlInstance})\n| where '*' in (_db) or DatabaseName in (_db)\n| where isnotempty(DatabaseName) and DatabaseName != \"_ERROR\"\n| where '{SystemDbs}' == 'INCLUDE_ALL' or ('{SystemDbs}' == 'EXCLUDE_TEMPDB' and DatabaseName !~ \"tempdb\") or ('{SystemDbs}' == 'EXCLUDE_SYSTEM' and DatabaseName !in~ (\"master\", \"model\", \"msdb\", \"tempdb\"))\n| where RecoveryModel == \"FULL\"\n| summarize arg_max(TimeGenerated, *) by SqlInstance, DatabaseName\n| where '{DbState}' == 'ALL' or DatabaseState == 'ONLINE'\n| project SqlInstance, DatabaseName, DatabaseState, LastLogBackupTime, MinutesSinceLogBackup\n| order by MinutesSinceLogBackup desc",
+              "size": 0,
+              "title": "Log Backup Status (Databases with FULL Recovery)",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspace}"
+              ],
+              "visualization": "table",
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "MinutesSinceLogBackup",
+                    "formatter": 8,
+                    "formatOptions": {
+                      "min": 0,
+                      "max": 120,
+                      "palette": "greenRed"
+                    }
+                  }
+                ],
+                "filter": true,
+                "labelSettings": [
+                  { "columnId": "SqlInstance", "label": "SQL Instance" },
+                  { "columnId": "DatabaseName", "label": "Database" },
+                  { "columnId": "DatabaseState", "label": "State" },
+                  { "columnId": "LastLogBackupTime", "label": "Last Log Backup" },
+                  { "columnId": "MinutesSinceLogBackup", "label": "Minutes Since Log Backup" }
+                ]
+              }
+            },
+            "name": "grid-log-backup"
+          }
+        ]
+      },
+      "conditionalVisibility": {
+        "parameterName": "selectedTab",
+        "comparison": "isEqualTo",
+        "value": "Backups"
+      },
+      "name": "group-backups"
+    }
+  ],
+  "fallbackResourceIds": [],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}

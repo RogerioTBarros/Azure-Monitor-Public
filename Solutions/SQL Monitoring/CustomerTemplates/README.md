@@ -72,6 +72,26 @@ The simplest way to deploy is through the Azure Portal using the ARM templates. 
 2. Add your Arc-enabled server or Azure VM
 3. Wait for the worker to show **Connected** status (~5 minutes)
 
+> **⚠️ Required before the runbook can run — install PowerShell 7.2 on every worker.**
+> Extension-based Hybrid Workers do **not** ship PowerShell 7.x, and a runtime-7.2 runbook will fail with *"…is not recognized as a command… Install the language interpreter"*. On **each** worker:
+>
+> 1. Install **PowerShell 7.2 LTS** using the **MSI** (Windows Server 2019 has no winget).
+> 2. Set the **machine-scope** environment variable `powershell_7_2_path` to the full path of `pwsh.exe`, normally `C:\Program Files\PowerShell\7\pwsh.exe`.
+> 3. Restart the **`HybridWorkerService`** service.
+>
+> Verify with:
+>
+> ```powershell
+> [Environment]::GetEnvironmentVariable('powershell_7_2_path','Machine')
+> Test-Path 'C:\Program Files\PowerShell\7\pwsh.exe'
+> ```
+>
+> Do **not** standardise on PowerShell 7.6.x — Azure Automation only recognises the 7.1 / 7.2 / 7.4 runtimes (there is no `powershell_7_6_path`), so pairing a 7.2 runbook with 7.6 is unsupported.
+>
+> **Install machine-wide, not from the Microsoft Store.** A Store/`msstore` install puts `pwsh.exe` under `%LOCALAPPDATA%\Microsoft\WindowsApps` as a *per-user* app-execution alias. Hybrid Worker jobs run as **Local System**, which cannot read or execute that path — the environment variable will look correct and every job will still fail.
+>
+> **This setting is fragile.** `powershell_7_2_path` is a plain environment variable that nothing recreates. Upgrading PowerShell, re-provisioning a worker or reverting a VM checkpoint can silently clear it, and collection then stops with no alert. See [Keep the pipeline honest](#keep-the-pipeline-honest).
+
 ### Step 5: Import Runbook
 
 1. Go to **Automation Account → Runbooks → Create**
@@ -95,6 +115,20 @@ The simplest way to deploy is through the Azure Portal using the ARM templates. 
 6. Click **Create**
 
 > **Tip**: When IPs or instances change, simply update this variable — no need to touch the schedule.
+
+> **⚠️ Prefer host names over IP addresses when using Windows Authentication.** Windows Auth against an **IP address** cannot use Kerberos — there is no Service Principal Name registered for a bare IP, so the client falls back to NTLM. From a Hybrid Worker (running as Local System) that fallback typically cannot present the machine account to a *remote* instance, and SQL Server rejects the session as:
+>
+> ```text
+> Login failed for user 'NT AUTHORITY\ANONYMOUS LOGON'.
+> ```
+>
+> A SQL instance on the worker **itself** still succeeds over an IP, so a partial failure where only the local instance reports is a strong signal of this problem. Use the host name or FQDN (which lets Kerberos match the SQL SPN), or switch that instance to **SQL Authentication**. IP addresses are fine for SQL Auth.
+
+> **Clustered SQL Servers — Failover Cluster Instance (FCI)**: List the **virtual network name** (the clustered SQL Server Network Name) — **one entry per FCI**, and **not** the physical node names (the passive node has SQL stopped and would just report connection failures). An FCI is a single instance on shared storage, so the virtual name always reaches the active node and sees the **complete backup history** (`msdb` is shared). Grant the read-only rights **once per FCI** — the login lives in `master` on shared storage and persists across nodes. Note: instance **uptime resets on failover** (the SQL service restarts on the new node), so a low uptime value can simply mean a recent failover, not an outage.
+>
+> &nbsp;&nbsp;&nbsp;&nbsp;**Tagging a cluster**: you still list only the virtual name, but Azure tags are read from the **physical node** (the VM / Arc machine). The collector records the active node in `PhysicalNodeName`, so apply the tag to **every node** of the cluster — otherwise the instance vanishes from a tag-filtered dashboard as soon as it fails over to an untagged node. See [Upgrading an existing deployment](#adding-physicalnodename--isclustered).
+>
+> **Always On availability group (AG)**: List **each replica's instance name** (one entry per replica), not just the listener — otherwise you miss secondary-node uptime, and backups taken on a secondary replica (which land in that replica's own local `msdb`) won't appear when you query only the primary. Apply the read-only grant on **every** replica.
 
 ### Step 7: Create Schedule
 
@@ -127,8 +161,9 @@ The simplest way to deploy is through the Azure Portal using the ARM templates. 
    - **Location**: Same region as your workspace
 4. Click **Review + Create → Create**
 
-### Step 9: Verify
+> **v2 workbook** (`arm-template-workbook-v2.json`) adds an Uptime / Availability tab, an Azure tag filter and two database filters. Note that it **excludes `tempdb` by default** — it is recreated at every SQL Server start and can never be backed up, so counting it permanently reports `Never` and understates backup compliance. Database counts and compliance percentages will therefore differ from v1; the active setting is shown in the Summary, Databases and Backups headers, and **System Databases → Include everything** restores the v1 behaviour.
 
+### Step 9: Verify
 1. After running the first scheduled job (or a manual test run), wait 5-10 minutes
 2. Go to **Azure Portal → Monitor → Workbooks**
 3. Open "SQL Server Monitoring Dashboard"
@@ -176,6 +211,98 @@ az login
     -SqlAuthenticationType "SQL" `
     -KeyVaultName "existing-kv" `
     -KeyVaultResourceGroup "rg-security"
+```
+
+---
+
+## Upgrading an existing deployment
+
+### Adding `PhysicalNodeName` / `IsClustered`
+
+These two columns let the workbook filter SQL Servers by **Azure resource tag**. Tags live on
+the VM or Arc-enabled machine, but a clustered instance reports only its cluster *virtual*
+name in `SqlInstance` and `ServerName` — neither of which is a tagged Azure resource.
+`PhysicalNodeName` comes from `SERVERPROPERTY('ComputerNamePhysicalNetBIOS')`, which is the
+computer actually running the instance and **changes as an FCI fails over**, so it matches the
+tagged resource and follows the instance across nodes.
+
+> **⚠️ Order matters.** The DCR silently discards any field its stream does not declare — no
+> error, no warning, the column is simply absent in Log Analytics. Update the table and the
+> DCR **before** publishing the new runbook.
+
+1. Redeploy `arm-template-infrastructure.json` (adds the two columns to `SQLServerMonitoring_CL`).
+   Adding columns is non-breaking and preserves existing data.
+2. Redeploy `arm-template-data-collection.json` (adds the two columns to the DCR stream).
+   Deploying over the existing DCR keeps the same `dcrImmutableId`, so no schedule changes are needed.
+3. Re-paste `Get-SQLServerInfo-LogsIngestionApi.ps1` into the runbook and **Publish**.
+4. Deploy `arm-template-workbook-v2.json`.
+
+Confirm the new column is populated after the next run:
+
+```kusto
+SQLServerMonitoring_CL
+| where TimeGenerated > ago(2h) and DatabaseName != "_ERROR"
+| summarize by SqlInstance, ServerName, PhysicalNodeName, IsClustered
+```
+
+For an FCI, expect `ServerName` = the virtual name and `PhysicalNodeName` = the active node.
+Ensure the tag is applied to **every** node of the cluster, otherwise the instance disappears
+from the dashboard whenever it fails over to an untagged node.
+
+The v2 workbook checks this for you: **Instances → Tag Coverage** lists every monitored instance
+whose node carries no tag, and the Azure machines that need tagging. Both views ignore the Tag
+Value selection, so they show exactly what a tag filter would hide.
+
+An instance that is **down or unreachable** still appears under its tag — a failed poll reports no
+node, so the workbook carries each instance's last known node forward within the selected time
+range. Only an instance never collected successfully in that range has no node to match on.
+
+> Steps 1–3 are only required for the tag filter. If you don't filter by tag, the existing
+> deployment keeps working unchanged, and the v2 workbook falls back to the older matching keys.
+
+---
+
+## Troubleshooting
+
+Run the runbook manually first and read the job **Output** tab — it prints a per-instance
+**Authentication / Connection / Databases / Backup health / Status** block plus a
+`total | succeeded | failed` summary, which isolates most problems immediately.
+
+| Symptom in the job output | Most likely cause | Fix |
+|---|---|---|
+| `…is not recognized as a command… Install the language interpreter` | PowerShell 7.2 missing on the worker, or `powershell_7_2_path` empty / pointing at a per-user `WindowsApps` alias | [Step 4 prerequisite](#step-4-set-up-hybrid-worker) |
+| `Login failed for user 'NT AUTHORITY\ANONYMOUS LOGON'` | Windows Auth over an **IP address** (no SPN → NTLM → no machine account presented) | Use the host name / FQDN, or switch that instance to SQL Auth |
+| `Login failed for user 'DOMAIN\WORKER$'` | Worker machine account has no SQL login | Apply the `GRANT` script in [Runbooks/README.md](../Runbooks/README.md#sql-server-authentication--permissions) |
+| `provider: Named Pipes Provider, error: 40` | TCP/IP protocol disabled, SQL service stopped, wrong address, or firewall | Enable **TCP/IP** in SQL Server Configuration Manager, confirm 1433 is listening, open the firewall |
+| `Invalid URI: The hostname could not be parsed` | Token call missing the `Metadata: True` header | Re-paste the current runbook — the shipped version already handles this |
+| Job status **Suspended**, no output | Schedule linked without the mandatory parameters | Re-link the schedule with `DceEndpoint` and `DcrImmutableId` ([Step 7](#step-7-create-schedule)) |
+| Only the instance co-located with the worker reports | Remote Windows Auth failing (see `ANONYMOUS LOGON` above) | Same fix |
+| Rows arrive but every database shows `Never` / `Critical` | Worker account cannot read `msdb.dbo.backupset` | Grant `SELECT ON OBJECT::dbo.backupset` in `msdb` |
+| Tag filter in the workbook returns nothing | `PhysicalNodeName` missing (table/DCR not updated), or the node isn't tagged | [Upgrading an existing deployment](#adding-physicalnodename--isclustered); check **Instances → Tag Coverage** |
+
+### Keep the pipeline honest
+
+Every failure mode above is **silent** — the schedule keeps running and the workbook simply
+stops gaining rows. Create an alert rule on the absence of data so a broken worker surfaces
+on its own:
+
+```kusto
+SQLServerMonitoring_CL
+| where TimeGenerated > ago(2h)
+| summarize Rows = count()
+| where Rows == 0
+```
+
+Alert when the result is non-empty, evaluated every hour. For per-instance coverage, alert on
+instances whose most recent record is an `_ERROR` row:
+
+```kusto
+SQLServerMonitoring_CL
+| where TimeGenerated > ago(2h)
+| summarize LastPoll = max(TimeGenerated),
+            LastError = maxif(TimeGenerated, DatabaseName == "_ERROR")
+          by SqlInstance
+| where isnotnull(LastError) and LastError == LastPoll
 ```
 
 ---

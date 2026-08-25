@@ -386,10 +386,13 @@ function Get-SqlServerData {
         $connection.Open()
         
         # Query 1: Instance Uptime
+        # ComputerNamePhysicalNetBIOS is the ACTIVE physical node (follows FCI failover); MachineName would return the cluster virtual name.
         $instanceQuery = @"
 SELECT 
     @@SERVERNAME AS server_name,
     @@VERSION AS sql_version,
+    CAST(SERVERPROPERTY('ComputerNamePhysicalNetBIOS') AS nvarchar(128)) AS physical_node_name,
+    CAST(SERVERPROPERTY('IsClustered') AS int) AS is_clustered,
     sqlserver_start_time,
     DATEDIFF(SECOND, sqlserver_start_time, GETDATE()) AS uptime_seconds
 FROM sys.dm_os_sys_info
@@ -474,6 +477,12 @@ function ConvertTo-LogAnalyticsRecord {
             CollectorName              = $CollectorName
             SqlInstance                = $SqlInstance
             ServerName                 = [string]$instanceRow.server_name
+            PhysicalNodeName           = if ($instanceRow.physical_node_name -ne [DBNull]::Value) {
+                                             [string]$instanceRow.physical_node_name
+                                         } else { "" }
+            IsClustered                = if ($instanceRow.is_clustered -ne [DBNull]::Value) {
+                                             [int]$instanceRow.is_clustered
+                                         } else { -1 }
             SqlVersion                 = ([string]$instanceRow.sql_version).Split("`n")[0].Trim()  # First line only
             InstanceStartTime          = $instanceRow.sqlserver_start_time.ToString("yyyy-MM-ddTHH:mm:ssZ")
             InstanceUptimeSeconds      = [int]$instanceRow.uptime_seconds
@@ -671,6 +680,8 @@ foreach ($sqlInstance in $SqlInstances) {
             CollectorName         = $collectorName
             SqlInstance           = $sqlInstance
             ServerName            = ""
+            PhysicalNodeName      = ""
+            IsClustered           = -1
             SqlVersion            = ""
             InstanceStartTime     = ""
             InstanceUptimeSeconds = -1
