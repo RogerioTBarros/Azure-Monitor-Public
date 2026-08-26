@@ -86,9 +86,31 @@ list `PhysicalNodeName` and `IsClustered`.
    | Parameter | Value |
    |---|---|
    | `dataCollectionEndpointName` | your existing DCE name |
+   | `createDataCollectionEndpoint` | **false** — v2 changes nothing in the DCE |
    | `dataCollectionRuleName` | your existing DCR name |
    | `logAnalyticsWorkspaceName` | your existing workspace name |
    | `logAnalyticsWorkspaceResourceGroup` | the workspace's resource group |
+   | `location` | your **Log Analytics workspace's** region — the existing DCE and DCR must already be in it |
+
+> **⚠️ Set `location` to the region of the existing resources — not the resource group's region.**
+> `location` defaults to the *resource group's* location, and a resource group frequently holds
+> resources in a different region. An Azure resource **cannot change region after it is created**, so
+> deploying with the wrong value fails validation with:
+>
+> ```text
+> The resource 'sql-monitoring-dce' already exists in location '<region-a>' in resource group
+> '<rg-name>'. A resource with the same name cannot be created in location '<region-b>'.
+> (Code: InvalidResourceLocation)
+> ```
+>
+> Read the correct value from Monitor → **Data Collection Rules** → your DCR → **Location**, and
+> confirm the DCE matches. Setting `createDataCollectionEndpoint` to **false** leaves the DCE
+> completely untouched; the DCR is still updated in place and keeps its `immutableId`.
+>
+> Microsoft's guidance is that the DCR region "must match the region of the Log Analytics workspace
+> and the DCE if you're using one", and a DCE's logs ingestion endpoint belongs in the same region as
+> the destination workspace. If the three do not currently agree, align them on the **workspace's**
+> region rather than deploying v2 on top of the mismatch.
 
 3. **Review + create** → **Create**.
 
@@ -101,6 +123,20 @@ list `PhysicalNodeName` and `IsClustered`.
 `immutableId` is unchanged, then open the **JSON view** and confirm the two columns appear under
 `streamDeclarations`.
 
+### If the DCE or DCR was re-created in another region
+
+Region is immutable, so "moving" a DCE or DCR means a **new resource**, even when the name is reused.
+The in-place `immutableId` guarantee above does **not** apply in that case. After such a move:
+
+1. Copy the new DCE **logs ingestion endpoint** (DCE → Overview) and the new DCR **`immutableId`**
+   (DCR → Overview) — both differ from the old ones.
+2. Update the runbook's `DceEndpoint` and `DcrImmutableId` parameters **and the schedule's copies of
+   them**, otherwise collection keeps writing to the old region's resources.
+3. Re-grant **Monitoring Metrics Publisher** on the new DCR to the Automation Account's
+   system-assigned managed identity. Role assignments do not follow a re-created resource.
+4. Leave the old DCE/DCR in place until data is confirmed arriving, then delete them once nothing
+   references them.
+
 ---
 
 ## Step 3 — Update the runbook
@@ -109,7 +145,8 @@ list `PhysicalNodeName` and `IsClustered`.
 2. Replace the entire contents with `CustomerTemplates/Get-SQLServerInfo-LogsIngestionApi.ps1`.
 3. **Save**, then **Publish**.
 
-Nothing else changes — same runtime, same parameters, same schedule.
+Nothing else changes — same runtime, same parameters, same schedule. The one exception is a DCE or DCR
+that was re-created in another region, which changes the endpoint and `immutableId` (see Step 2).
 
 ---
 
@@ -227,6 +264,7 @@ There is no need to remove the columns; the v1 workbook simply does not referenc
 
 | Symptom | Cause | Fix |
 |---|---|---|
+| Step 2 fails with `InvalidResourceLocation` | `location` resolved to a different region than the existing DCE/DCR — the default is the *resource group's* region | Set `location` to the existing DCR's region and `createDataCollectionEndpoint` to **false** |
 | Tag Value dropdown is empty | No resource in the selected subscriptions carries that tag key | Check the **Tag Name** spelling; tag keys are case-sensitive |
 | Tag filter returns nothing | `PhysicalNodeName` empty, or the node is not tagged | Step 4 verification, then **Tag Coverage** |
 | Tag Coverage says *PhysicalNodeName not populated* | Steps 1–3 not completed, or not yet propagated | Re-run the runbook and re-query |

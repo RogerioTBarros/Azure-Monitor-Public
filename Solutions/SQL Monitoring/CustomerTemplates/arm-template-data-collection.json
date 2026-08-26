@@ -13,6 +13,13 @@
         "description": "Name of the Data Collection Endpoint (DCE)."
       }
     },
+    "createDataCollectionEndpoint": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Create the DCE. Set to false when upgrading an existing deployment: the DCE is referenced but left untouched, which avoids redeploying it into a different region."
+      }
+    },
     "dataCollectionRuleName": {
       "type": "string",
       "defaultValue": "dcr-sql-monitoring",
@@ -37,7 +44,7 @@
       "type": "string",
       "defaultValue": "[resourceGroup().location]",
       "metadata": {
-        "description": "Azure region. Must match the Log Analytics Workspace region."
+        "description": "Azure region for the DCE and DCR. Must match the destination Log Analytics Workspace region. On an existing deployment, set this to the region the DCE and DCR are already in: a region cannot be changed after creation, and the default (the resource group's location) is often a different region."
       }
     }
   },
@@ -49,6 +56,7 @@
   },
   "resources": [
     {
+      "condition": "[parameters('createDataCollectionEndpoint')]",
       "type": "Microsoft.Insights/dataCollectionEndpoints",
       "apiVersion": "2022-06-01",
       "name": "[parameters('dataCollectionEndpointName')]",
