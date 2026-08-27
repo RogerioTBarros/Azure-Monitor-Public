@@ -81,7 +81,18 @@ list `PhysicalNodeName` and `IsClustered`.
 
 1. Azure portal → **Deploy a custom template** → **Build your own template in the editor** →
    **Load file** → select `arm-template-data-collection.json`.
-2. Fill in the parameters, using **exactly the same names** as your existing deployment:
+2. Set **Subscription** and **Resource group** to the group that **contains your existing DCR**.
+
+> **⚠️ The resource group you deploy into is the single most important choice on this page.**
+> The template finds the DCE *by name inside the deployment's resource group*. Deploying into any
+> other group will either bind the DCR to a different endpoint that happens to share the name, or
+> create a **second DCR with a new `immutableId`** while the runbook keeps writing to the old one.
+>
+> The **Region** field just above the parameters is disabled and follows the resource group. That is
+> the *deployment's* own region and does **not** control where the DCE and DCR are created — the
+> `location` parameter does. A resource group in one region routinely contains resources in another.
+
+3. Fill in the parameters, using **exactly the same names** as your existing deployment:
 
    | Parameter | Value |
    |---|---|
@@ -112,7 +123,7 @@ list `PhysicalNodeName` and `IsClustered`.
 > the destination workspace. If the three do not currently agree, align them on the **workspace's**
 > region rather than deploying v2 on top of the mismatch.
 
-3. **Review + create** → **Create**.
+4. **Review + create** → **Create**.
 
 > **Keep the DCR name identical.** Deploying over the existing rule updates it in place and the
 > **`immutableId` is preserved**, so no schedule or runbook parameter needs to change. Using a
@@ -265,6 +276,8 @@ There is no need to remove the columns; the v1 workbook simply does not referenc
 | Symptom | Cause | Fix |
 |---|---|---|
 | Step 2 fails with `InvalidResourceLocation` | `location` resolved to a different region than the existing DCE/DCR — the default is the *resource group's* region | Set `location` to the existing DCR's region and `createDataCollectionEndpoint` to **false** |
+| Step 2 fails with `InvalidWorkspace` — workspace "is in different location" than the DCR | `location` does not match the workspace's region | Set `location` to the workspace's region |
+| Step 2 fails with `InvalidEndpoint` — the DCE "does not exist in the region of the data collection rule" | The deployment is scoped to a resource group whose DCE is in another region; the template resolves the DCE by name **inside the deployment's resource group** | Deploy into the resource group that holds the DCR and its DCE |
 | Tag Value dropdown is empty | No resource in the selected subscriptions carries that tag key | Check the **Tag Name** spelling; tag keys are case-sensitive |
 | Tag filter returns nothing | `PhysicalNodeName` empty, or the node is not tagged | Step 4 verification, then **Tag Coverage** |
 | Tag Coverage says *PhysicalNodeName not populated* | Steps 1–3 not completed, or not yet propagated | Re-run the runbook and re-query |
