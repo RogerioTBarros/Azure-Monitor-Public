@@ -1,0 +1,11 @@
+# Collector output - inventory data must never be committed.
+Data/
+data/
+*.csv
+*.jsonl
+checkpoints/
+
+# Progress archives
+*.zip
+*.tgz
+*.tar.gz
