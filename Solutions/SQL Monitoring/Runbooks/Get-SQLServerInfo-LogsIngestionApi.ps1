@@ -531,14 +531,23 @@ if (-not $SqlInstances -or $SqlInstances.Count -eq 0) {
         Write-Output "Variable raw value: $variableValue"
         
         # Parse JSON array or comma-separated string
-        if ($variableValue.Trim().StartsWith('[')) {
-            # JSON array format: ["Server1", "Server2\Instance1", "10.0.0.5,1433"]
-            $SqlInstances = $variableValue | ConvertFrom-Json
+        $variableText = $variableValue.Trim()
+        if ($variableText.StartsWith('[')) {
+            # JSON array format: ["Server1", "Server2\\Instance1", "10.0.0.5,1433"]
+            # A single backslash (Server2\Instance1) is not valid JSON; retry with backslashes doubled,
+            # then fall back to a plain comma split.
+            try { $SqlInstances = $variableText | ConvertFrom-Json -ErrorAction Stop }
+            catch {
+                try { $SqlInstances = ($variableText -replace '(?<!\\)\\(?!\\)', '\\') | ConvertFrom-Json -ErrorAction Stop }
+                catch { $SqlInstances = $variableText.Trim('[', ']') -split ',' }
+            }
         } else {
             # Comma-separated format (legacy): Server1,Server2\Instance1
             # Note: instances with port (e.g. 10.0.0.5,1433) must use JSON format
-            $SqlInstances = $variableValue -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
+            $SqlInstances = $variableText -split ','
         }
+        # Remove stray quotes and whitespace so the instance name is stored exactly as the server reports it
+        $SqlInstances = @($SqlInstances | ForEach-Object { ([string]$_).Trim().Trim('[', ']').Trim('"', "'").Trim() } | Where-Object { $_ -ne '' })
         
         Write-Output "Loaded $($SqlInstances.Count) SQL instance(s) from Automation variable '$SqlInstancesVariableName'"
     }
@@ -550,7 +559,7 @@ if (-not $SqlInstances -or $SqlInstances.Count -eq 0) {
 } else {
     Write-Output "Using SQL instances from parameter"
     # Sanitize SqlInstances - Azure Automation array serialization may add brackets
-    $SqlInstances = $SqlInstances | ForEach-Object { $_.Trim().TrimStart('[').TrimEnd(']').Trim() } | Where-Object { $_ -ne '' }
+    $SqlInstances = $SqlInstances | ForEach-Object { $_.Trim().TrimStart('[').TrimEnd(']').Trim().Trim('"', "'").Trim() } | Where-Object { $_ -ne '' }
 }
 
 if ($SqlInstances.Count -eq 0) {
