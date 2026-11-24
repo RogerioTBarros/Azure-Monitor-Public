@@ -29,7 +29,7 @@
                 ],
                 "queryType": 1,
                 "resourceType": "microsoft.resourcegraph/resources",
-                "value": "/subscriptions/941a3b59-bb72-46d2-9a88-00b3e139eb25/resourcegroups/rgdvtranscvnet/providers/microsoft.network/virtualnetworks/vnetdvtranscbrazilsouth"
+                "value": "/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/rgdvtranscvnet/providers/microsoft.network/virtualnetworks/vnetdvtranscbrazilsouth"
               }
             ],
             "style": "pills",

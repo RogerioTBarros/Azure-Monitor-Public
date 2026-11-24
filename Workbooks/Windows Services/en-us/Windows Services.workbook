@@ -439,7 +439,7 @@
               "queryType": 0,
               "resourceType": "microsoft.operationalinsights/workspaces",
               "crossComponentResources": [
-                "/subscriptions/fd40b8a2-53c9-4138-80d5-3c2d0f82b702/resourcegroups/rogeriolab-mgmt/providers/microsoft.operationalinsights/workspaces/rogeriolab-law"
+                "/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/rogeriolab-mgmt/providers/microsoft.operationalinsights/workspaces/rogeriolab-law"
               ],
               "gridSettings": {
                 "formatters": [

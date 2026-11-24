@@ -36,7 +36,7 @@
             },
             "queryType": 1,
             "resourceType": "microsoft.resources/tenants",
-            "value": "/subscriptions/a08eb318-0b05-45e9-91e2-fd9622c79e00/resourcegroups/arc-win-prod-rg/providers/microsoft.hybridcompute/machines/hlmhsajadmdb-01"
+            "value": "/subscriptions/00000000-0000-0000-0000-000000000000/resourcegroups/arc-win-prod-rg/providers/microsoft.hybridcompute/machines/hlmhsajadmdb-01"
           },
           {
             "id": "a6e42bd0-7d58-48d8-88b2-5564ceda1b9b",

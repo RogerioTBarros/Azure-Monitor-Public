@@ -1,4 +1,4 @@
-Processando VMs da subscription: Visual Studio Enterprise - rogeriolab - nova (fa9678e8-6b00-4b3c-9a0d-465e5faff9ab) - d71ac216-0460-441e-8b8b-80fea906bfa8 - rogerio.barros@hotmail.com
+Processando VMs da subscription: Visual Studio Enterprise - rogeriolab - nova (00000000-0000-0000-0000-000000000000) - 00000000-0000-0000-0000-000000000000 - user@example.com
 
 Processando VM: Win-brz-002
 Iniciando associação de User Assigned Managed Identity...
@@ -29,7 +29,7 @@ Checando DCRs associadas à VM WindowsBrazilSouth-001
 A VM possui as seguintes DCRs associadas: 
 MSVMI-VMDefault-DCR
 A DCR MSVMI-VMDefault-DCR já está associada à VM
-Processando VMs da subscription: Visual Studio Enterprise (56828eff-05b6-44cb-ae7f-3c007e40d164) - d71ac216-0460-441e-8b8b-80fea906bfa8 - rogerio.barros@hotmail.com
+Processando VMs da subscription: Visual Studio Enterprise (00000000-0000-0000-0000-000000000000) - 00000000-0000-0000-0000-000000000000 - user@example.com
 
 Processando VM: win-vsold-001
 Iniciando associação de User Assigned Managed Identity...
